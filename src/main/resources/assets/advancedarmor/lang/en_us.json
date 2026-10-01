@@ -9,5 +9,12 @@
   "block.advancedarmor.sts_armor": "STS / Class B Armor",
   "block.advancedarmor.ducol_steel": "Ducol Hull Steel",
   "block.advancedarmor.british_plastic_protection": "British Plastic Protection",
-  "itemGroup.advancedarmor.armor": "Advanced Armor"
+  "itemGroup.advancedarmor.armor": "Advanced Armor",
+  "item.advancedarmor.armor_inspection_tool": "Dynamic Armor Inspection Tool",
+  "inspection.advancedarmor.toughness": "Effective toughness: ",
+  "inspection.advancedarmor.hardness": "Hardness: ",
+  "inspection.advancedarmor.blocks": "Block count: ",
+  "inspection.advancedarmor.angle": "Simulated impact angle: ",
+  "inspection.advancedarmor.degrees": "%s°",
+  "inspection.advancedarmor.trace_limit": "Trace limit reached"
 }

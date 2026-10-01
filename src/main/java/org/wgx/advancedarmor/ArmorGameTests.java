@@ -6,6 +6,10 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.gametest.GameTestHolder;
 import org.wgx.advancedarmor.compat.ShipSpace;
 import org.wgx.advancedarmor.physics.BlastEnergy;
@@ -17,6 +21,7 @@ import rbasamoyai.createbigcannons.munitions.big_cannon.AbstractBigCannonProject
 import rbasamoyai.createbigcannons.munitions.big_cannon.ap_shell.APShellProjectile;
 import rbasamoyai.createbigcannons.munitions.big_cannon.solid_shot.SolidShotProjectile;
 import rbasamoyai.createbigcannons.munitions.ShellExplosion;
+import rbasamoyai.createbigcannons.block_armor_properties.BlockArmorPropertiesHandler;
 
 import java.lang.reflect.Method;
 
@@ -24,6 +29,131 @@ import java.lang.reflect.Method;
 @GameTestHolder(Advancedarmor.MODID)
 @net.minecraftforge.gametest.PrefixGameTestTemplate(false)
 public final class ArmorGameTests {
+    // Direct method tests must explicitly provide the scope normally installed
+    // by clipAndDamage. The addon tests below use the real shared call site.
+    private static Object invokeImpact(Method method, AbstractCannonProjectile projectile,
+            ProjectileContext context, BlockState state, BlockHitResult hit) throws Exception {
+        try (ArmorImpactContext ignored = ArmorImpactContext.open(projectile, state, hit)) {
+            return method.invoke(projectile, context, state, hit);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static EntityType<SolidShotProjectile> solidShotType() {
+        return (EntityType<SolidShotProjectile>) net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getValue(
+                new net.minecraft.resources.ResourceLocation("createbigcannons", "shot"));
+    }
+
+    /** Mimics an addon that overrides penetration without calling super. */
+    private static final class CustomPenetrationShot extends SolidShotProjectile {
+        private double observedToughness;
+        private double observedHardness;
+        private int impacts;
+        private boolean destroyBeforeQuery;
+        private boolean throwOnImpact;
+
+        private CustomPenetrationShot(Level level) { super(solidShotType(), level); }
+
+        @Override
+        protected Vec3 getForces(Vec3 position, Vec3 movement) { return Vec3.ZERO; }
+
+        @Override
+        protected ImpactResult calculateBlockPenetration(ProjectileContext context, BlockState state, BlockHitResult hit) {
+            impacts++;
+            if (throwOnImpact) throw new IllegalStateException("Test addon impact failure");
+            // Even an addon that destroys backing blocks before querying the
+            // provider must see the snapshot captured at the public call site.
+            if (destroyBeforeQuery) level().setBlock(hit.getBlockPos().east(), Blocks.AIR.defaultBlockState(), 11);
+            var provider = BlockArmorPropertiesHandler.getProperties(state);
+            observedToughness = provider.toughness(level(), state, hit.getBlockPos(), true);
+            observedHardness = provider.hardness(level(), state, hit.getBlockPos(), true);
+            return new ImpactResult(ImpactResult.KinematicOutcome.STOP, false);
+        }
+
+        private void collide() { clipAndDamage(); }
+    }
+
+    @GameTest(template = "empty")
+    public static void overriddenPenetrationReadsDirectionalSnapshot(GameTestHelper helper) {
+        for (int x = 1; x <= 3; x++) helper.setBlock(x, 2, 1, Advancedarmor.block("kc_armor").get());
+        BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
+        BlockState state = helper.getLevel().getBlockState(front);
+        var provider = BlockArmorPropertiesHandler.getProperties(state);
+        CustomPenetrationShot straight = new CustomPenetrationShot(helper.getLevel());
+        straight.setPos(front.getX() - .5, front.getY() + .5, front.getZ() + .5);
+        straight.setDeltaMovement(1, 0, 0);
+        straight.destroyBeforeQuery = true;
+        straight.collide();
+        helper.assertTrue(straight.impacts == 1 && Math.abs(straight.observedToughness - 162) < .001
+                        && Math.abs(straight.observedHardness - 1.95) < .001,
+                "An addon override must see all three armor blocks, even after it destroys backing armor");
+        helper.assertTrue(ArmorImpactContext.current(straight) == null
+                        && provider.toughness(helper.getLevel(), state, front, true) == 54,
+                "Impact context must disappear and ordinary queries must return base toughness");
+
+        CustomPenetrationShot side = new CustomPenetrationShot(helper.getLevel());
+        side.setPos(front.getX() + .5, front.getY() + .5, front.getZ() - .5);
+        side.setDeltaMovement(0, 0, 1);
+        side.collide();
+        helper.assertTrue(side.impacts == 1 && Math.abs(side.observedToughness - 54) < .001,
+                "The same block queried by a side impact must see only one layer along that direction");
+
+        for (int y = 2; y <= 7; y++) helper.setBlock(1, y, 1, Advancedarmor.block("kc_armor").get());
+        CustomPenetrationShot oblique = new CustomPenetrationShot(helper.getLevel());
+        double cosine = .25;
+        double sine = Math.sqrt(1 - cosine * cosine);
+        oblique.setPos(front.getX() - .1, front.getY() + .5 - .1 * sine / cosine, front.getZ() + .5);
+        oblique.setDeltaMovement(cosine, sine, 0);
+        oblique.collide();
+        helper.assertTrue(oblique.impacts == 1 && Math.abs(oblique.observedToughness - 54 / cosine) < .01,
+                "An addon override must receive the oblique secant thickness exactly once");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void impactContextUnwindsExceptionsAndNestedCalls(GameTestHelper helper) {
+        helper.setBlock(1, 2, 1, Advancedarmor.block("kc_armor").get());
+        helper.setBlock(2, 2, 1, Advancedarmor.block("kc_armor").get());
+        // The saved GameTest world can retain armor beyond this two-block fixture.
+        helper.setBlock(3, 2, 1, Blocks.AIR);
+        BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
+        BlockState state = helper.getLevel().getBlockState(front);
+        var provider = BlockArmorPropertiesHandler.getProperties(state);
+        BlockHitResult hit = new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
+                Direction.WEST, front, false);
+        CustomPenetrationShot outer = new CustomPenetrationShot(helper.getLevel());
+        outer.setDeltaMovement(1, 0, 0);
+        CustomPenetrationShot nested = new CustomPenetrationShot(helper.getLevel());
+        nested.setPos(front.getX() - .5, front.getY() + .5, front.getZ() + .5);
+        nested.setDeltaMovement(1, 0, 0);
+        nested.throwOnImpact = true;
+        try (ArmorImpactContext scope = ArmorImpactContext.open(outer, state, hit)) {
+            helper.assertTrue(provider.toughness(helper.getLevel(), state, front.east(), true) == 54,
+                    "An active hit must not change provider queries for another block position");
+            try (ArmorImpactContext ignored = ArmorImpactContext.open(nested, Blocks.STONE.defaultBlockState(), hit)) {
+                helper.assertTrue(provider.toughness(helper.getLevel(), state, front, true) == 54,
+                        "A nested non-armor impact must mask the outer armor scope");
+            }
+            try {
+                nested.collide();
+                helper.assertTrue(false, "The test addon must throw from its overridden impact");
+            } catch (IllegalStateException expected) {
+                helper.assertTrue(expected.getMessage().equals("Test addon impact failure"),
+                        "Only the intentional addon failure should be caught");
+            }
+            helper.assertTrue(ArmorImpactContext.current(outer) == scope && ArmorImpactContext.current(nested) == null
+                            && Math.abs(provider.toughness(helper.getLevel(), state, front, true) - 108) < .001,
+                    "An addon exception must restore the outer snapshot (outer: "
+                            + (ArmorImpactContext.current(outer) == scope) + ", nested cleared: "
+                            + (ArmorImpactContext.current(nested) == null) + ", toughness: "
+                            + provider.toughness(helper.getLevel(), state, front, true) + ")");
+        }
+        helper.assertTrue(ArmorImpactContext.current(outer) == null
+                        && provider.toughness(helper.getLevel(), state, front, true) == 54,
+                "Closing the final scope must restore static properties");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void layeredPlate(GameTestHelper helper) {
         helper.setBlock(1, 2, 1, Advancedarmor.block("kc_armor").get());
@@ -74,7 +204,7 @@ public final class ArmorGameTests {
         Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
                 ProjectileContext.class, net.minecraft.world.level.block.state.BlockState.class, BlockHitResult.class);
         impact.setAccessible(true);
-        impact.invoke(shot, new ProjectileContext(shot, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+        invokeImpact(impact, shot, new ProjectileContext(shot, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                 helper.getLevel().getBlockState(front), hit);
         helper.assertTrue(!helper.getLevel().getBlockState(front).isAir(),
                 "A shell below the first layer's cost must stop at its shared edge");
@@ -102,7 +232,7 @@ public final class ArmorGameTests {
         ProjectileContext context = new ProjectileContext(shot, CBCCfgMunitions.GriefState.ALL_DAMAGE);
         for (int x = 1; x <= 4; x++) {
             BlockPos pos = helper.absolutePos(new BlockPos(x, 2, 1));
-            impact.invoke(shot, context, helper.getLevel().getBlockState(pos),
+            invokeImpact(impact, shot, context, helper.getLevel().getBlockState(pos),
                     new BlockHitResult(new Vec3(pos.getX(), pos.getY() + .5, pos.getZ() + .5),
                             Direction.WEST, pos, false));
         }
@@ -139,7 +269,7 @@ public final class ArmorGameTests {
         Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
                 ProjectileContext.class, net.minecraft.world.level.block.state.BlockState.class, BlockHitResult.class);
         impact.setAccessible(true);
-        impact.invoke(shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+        invokeImpact(impact, shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                 helper.getLevel().getBlockState(front),
                 new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
                         Direction.WEST, front, false));
@@ -198,7 +328,7 @@ public final class ArmorGameTests {
             shell.setProjectileMass(14);
             BlockHitResult hit = new BlockHitResult(
                     new Vec3(front.getX(), contactY, front.getZ() + .5), Direction.WEST, front, false);
-            impact.invoke(shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+            invokeImpact(impact, shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                     helper.getLevel().getBlockState(front), hit);
             losses[i] = 14 - shell.getProjectileMass();
             helper.assertTrue(helper.getLevel().getBlockState(front).isAir()
@@ -244,7 +374,7 @@ public final class ArmorGameTests {
         Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
                 ProjectileContext.class, net.minecraft.world.level.block.state.BlockState.class, BlockHitResult.class);
         impact.setAccessible(true);
-        impact.invoke(shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+        invokeImpact(impact, shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                 helper.getLevel().getBlockState(front), hit);
         helper.assertTrue(!helper.getLevel().getBlockState(front).isAir(),
                 "A grazing AP shell below the normal-momentum budget must leave KC armor intact");
@@ -295,7 +425,7 @@ public final class ArmorGameTests {
         Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
                 ProjectileContext.class, net.minecraft.world.level.block.state.BlockState.class, BlockHitResult.class);
         impact.setAccessible(true);
-        impact.invoke(singleHit, new ProjectileContext(singleHit, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+        invokeImpact(impact, singleHit, new ProjectileContext(singleHit, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                 helper.getLevel().getBlockState(front),
                 new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
                         Direction.WEST, front, false));
@@ -350,7 +480,7 @@ public final class ArmorGameTests {
         Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
                 ProjectileContext.class, net.minecraft.world.level.block.state.BlockState.class, BlockHitResult.class);
         impact.setAccessible(true);
-        impact.invoke(shot, new ProjectileContext(shot, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+        invokeImpact(impact, shot, new ProjectileContext(shot, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                 helper.getLevel().getBlockState(front),
                 new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5), Direction.WEST, front, false));
         helper.assertTrue(helper.getLevel().getBlockState(front).isAir() && !helper.getLevel().getBlockState(back).isAir(),
@@ -363,7 +493,7 @@ public final class ArmorGameTests {
         weakShot.setPos(front.getX() - 1, front.getY() + .5, front.getZ() + .5);
         weakShot.setDeltaMovement(1, 0, 0);
         weakShot.setProjectileMass(1);
-        impact.invoke(weakShot, new ProjectileContext(weakShot, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+        invokeImpact(impact, weakShot, new ProjectileContext(weakShot, CBCCfgMunitions.GriefState.ALL_DAMAGE),
                 helper.getLevel().getBlockState(front),
                 new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5), Direction.WEST, front, false));
         helper.assertTrue(!helper.getLevel().getBlockState(front).isAir(),
@@ -437,6 +567,61 @@ public final class ArmorGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void inspectionUsesActualArmorPath(GameTestHelper helper) {
+        for (int x = 1; x <= 3; x++) helper.setBlock(x, 2, 1, Advancedarmor.block("kc_armor").get());
+        helper.setBlock(4, 2, 1, Blocks.AIR);
+        helper.setBlock(1, 2, 2, Blocks.AIR);
+        BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
+        BlockHitResult hit = new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
+                Direction.WEST, front, false);
+        ArmorInspection.Result straight = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
+        helper.assertTrue(straight != null && Math.abs(straight.toughness() - 162) < .001
+                        && straight.hardness() == 1.95 && straight.blocks() == 3 && straight.angleDegrees() == 0,
+                "Inspection must show the three-layer path, struck material hardness, and normal incidence");
+
+        BlockHitResult sideHit = new BlockHitResult(new Vec3(front.getX() + .5, front.getY() + .5, front.getZ()),
+                Direction.NORTH, front, false);
+        ArmorInspection.Result side = ArmorInspection.inspect(helper.getLevel(), sideHit, new Vec3(0, 0, 1));
+        helper.assertTrue(side != null && side.blocks() == 1 && Math.abs(side.toughness() - 54) < .001,
+                "Aiming at the same armor from the side must measure only one layer");
+
+        helper.setBlock(3, 2, 1, Blocks.AIR);
+        for (int x = 1; x <= 2; x++)
+            for (int y = 2; y <= 4; y++) helper.setBlock(x, y, 1, Advancedarmor.block("kc_armor").get());
+        helper.setBlock(3, 3, 1, Blocks.AIR);
+        Vec3 direction = new Vec3(1, .5, 0);
+        ArmorInspection.Result angled = ArmorInspection.inspect(helper.getLevel(), hit, direction);
+        ArmorPhysics.Profile impact = ArmorPhysics.trace(helper.getLevel(), hit, direction);
+        helper.assertTrue(angled != null && angled.blocks() == impact.blocks()
+                        && angled.toughness() == impact.totalToughness()
+                        && Math.abs(angled.toughness() - 108 * Math.sqrt(1.25)) < .001
+                        && Math.abs(angled.angleDegrees() - Math.toDegrees(Math.atan(.5))) < .001,
+                "Inspection must match the projectile path with the secant factor exactly once");
+
+        helper.setBlock(2, 2, 1, Advancedarmor.block("sts_armor").get());
+        ArmorInspection.Result mixed = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
+        BlockState state = helper.getLevel().getBlockState(front);
+        helper.assertTrue(mixed != null && Math.abs(mixed.toughness() - 92) < .001 && mixed.blocks() == 2
+                        && mixed.hardness() == 1.95 && ArmorImpactContext.toughness(helper.getLevel(), state, front, 54) == 54
+                        && helper.getLevel().getBlockState(front.east()).is(Advancedarmor.block("sts_armor").get()),
+                "Inspection must sum mixed materials without opening impact scopes or destroying armor");
+
+        helper.setBlock(1, 2, 1, Blocks.STONE);
+        state = helper.getLevel().getBlockState(front);
+        var provider = BlockArmorPropertiesHandler.getProperties(state);
+        ArmorInspection.Result ordinary = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
+        helper.assertTrue(ordinary != null && ordinary.blocks() == 1
+                        && ordinary.toughness() == provider.toughness(helper.getLevel(), state, front, true)
+                        && ordinary.hardness() == provider.hardness(helper.getLevel(), state, front, true),
+                "Ordinary blocks must display CBC's attributes without adding an armor path");
+        helper.assertTrue(ArmorInspection.inspect(helper.getLevel(), hit, Vec3.ZERO) == null
+                        && ArmorInspection.inspect(helper.getLevel(), BlockHitResult.miss(hit.getLocation(),
+                        Direction.WEST, front), new Vec3(1, 0, 0)) == null,
+                "Invalid view directions and a missed crosshair must produce no inspection");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void creativeArmorTab(GameTestHelper helper) {
         net.minecraft.resources.ResourceLocation tabId = new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, "armor");
         helper.assertTrue(net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.containsKey(tabId),
@@ -451,6 +636,10 @@ public final class ArmorGameTests {
                     new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, name)),
                     "Missing creative inventory block item: " + name);
         }
+        helper.assertTrue(net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                        new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, "armor_inspection_tool"))
+                        == Advancedarmor.ARMOR_INSPECTION_TOOL.get(),
+                "The dynamic armor inspection item must be registered on the server too");
         helper.succeed();
     }
 }

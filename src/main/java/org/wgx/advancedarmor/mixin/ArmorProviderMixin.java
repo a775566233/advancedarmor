@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.wgx.advancedarmor.ArmorData;
+import org.wgx.advancedarmor.ArmorImpactContext;
 import rbasamoyai.createbigcannons.block_armor_properties.BlockArmorPropertiesHandler;
 import rbasamoyai.createbigcannons.block_armor_properties.BlockArmorPropertiesProvider;
 
@@ -24,12 +25,12 @@ public abstract class ArmorProviderMixin {
         callback.setReturnValue(new BlockArmorPropertiesProvider() {
             @Override
             public double hardness(Level level, BlockState block, BlockPos pos, boolean recurse) {
-                return values.hardness();
+                return ArmorImpactContext.hardness(level, block, pos, values.hardness());
             }
 
             @Override
             public double toughness(Level level, BlockState block, BlockPos pos, boolean recurse) {
-                return values.toughness();
+                return ArmorImpactContext.toughness(level, block, pos, values.toughness());
             }
 
             @Override

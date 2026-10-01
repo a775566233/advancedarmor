@@ -6,6 +6,8 @@
   "refmap": "advancedarmor.refmap.json",
   "mixins": [
     "CannonProjectileMixin",
+    "CannonProjectileAccessor",
+    "ProjectileCollisionMixin",
     "ArmorProviderMixin",
     "SurfaceNormalMixin",
     "ExplosionAccessor",

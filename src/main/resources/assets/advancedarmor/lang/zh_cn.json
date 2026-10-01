@@ -9,5 +9,12 @@
   "block.advancedarmor.sts_armor": "均质镍铬钢／STS／Class B",
   "block.advancedarmor.ducol_steel": "Ducol 等高强度船体钢",
   "block.advancedarmor.british_plastic_protection": "英式塑性防护",
-  "itemGroup.advancedarmor.armor": "高级装甲"
+  "itemGroup.advancedarmor.armor": "高级装甲",
+  "item.advancedarmor.armor_inspection_tool": "装甲动态检测工具",
+  "inspection.advancedarmor.toughness": "实际韧性：",
+  "inspection.advancedarmor.hardness": "硬度：",
+  "inspection.advancedarmor.blocks": "方块数量：",
+  "inspection.advancedarmor.angle": "模拟入射角度：",
+  "inspection.advancedarmor.degrees": "%s°",
+  "inspection.advancedarmor.trace_limit": "达到检测上限"
 }

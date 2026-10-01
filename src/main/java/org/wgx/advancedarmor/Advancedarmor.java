@@ -25,6 +25,8 @@ public final class Advancedarmor {
     public static final String MODID = "advancedarmor";
     private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
+    public static final RegistryObject<Item> ARMOR_INSPECTION_TOOL = ITEMS.register("armor_inspection_tool",
+            () -> new Item(new Item.Properties().stacksTo(1)));
     private static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     private static final Map<String, RegistryObject<Block>> ARMOR = new LinkedHashMap<>();
     public static RegistryObject<Block> block(String name) { return ARMOR.get(name); }
@@ -58,7 +60,10 @@ public final class Advancedarmor {
                 .withTabsBefore(CreativeModeTabs.COMBAT)
                 .title(net.minecraft.network.chat.Component.translatable("itemGroup.advancedarmor.armor"))
                 .icon(() -> ARMOR.get("kc_armor").get().asItem().getDefaultInstance())
-                .displayItems((parameters, output) -> ARMOR.values().forEach(block -> output.accept(block.get())))
+                .displayItems((parameters, output) -> {
+                    ARMOR.values().forEach(block -> output.accept(block.get()));
+                    output.accept(ARMOR_INSPECTION_TOOL.get());
+                })
                 .build());
         TABS.register(bus);
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(this::addReloadListener);

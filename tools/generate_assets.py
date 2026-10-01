@@ -63,6 +63,33 @@ for name, chinese, english, toughness, hardness, blast, base, seed in MATERIALS:
 
 zh["itemGroup.advancedarmor.armor"] = "高级装甲"
 en["itemGroup.advancedarmor.armor"] = "Advanced Armor"
+zh.update({
+    "item.advancedarmor.armor_inspection_tool": "装甲动态检测工具",
+    "inspection.advancedarmor.toughness": "实际韧性：",
+    "inspection.advancedarmor.hardness": "硬度：",
+    "inspection.advancedarmor.blocks": "方块数量：",
+    "inspection.advancedarmor.angle": "模拟入射角度：",
+    "inspection.advancedarmor.degrees": "%s°",
+    "inspection.advancedarmor.trace_limit": "达到检测上限",
+})
+en.update({
+    "item.advancedarmor.armor_inspection_tool": "Dynamic Armor Inspection Tool",
+    "inspection.advancedarmor.toughness": "Effective toughness: ",
+    "inspection.advancedarmor.hardness": "Hardness: ",
+    "inspection.advancedarmor.blocks": "Block count: ",
+    "inspection.advancedarmor.angle": "Simulated impact angle: ",
+    "inspection.advancedarmor.degrees": "%s°",
+    "inspection.advancedarmor.trace_limit": "Trace limit reached",
+})
+put(ROOT / "assets/advancedarmor/models/item/armor_inspection_tool.json", {
+    "parent": "minecraft:item/generated",
+    "textures": {"layer0": "createbigcannons:item/block_armor_inspection_tool"},
+})
+put(ROOT / "data/advancedarmor/recipes/armor_inspection_tool.json", {
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [{"item": "createbigcannons:block_armor_inspection_tool"}, {"item": "advancedarmor:kc_armor"}],
+    "result": {"item": "advancedarmor:armor_inspection_tool"},
+})
 put(ROOT / "assets/advancedarmor/lang/zh_cn.json", zh)
 put(ROOT / "assets/advancedarmor/lang/en_us.json", en)
 put(ROOT / "data/minecraft/tags/blocks/mineable/pickaxe.json", {
