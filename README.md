@@ -2,6 +2,12 @@
 
 Minecraft Java 1.20.1 Forge 模组。提供十种舰船装甲方块、CBC 炮弹的叠层装甲计算，以及高爆弹有限能量传播。普通世界方块与 Valkyrien Skies 2 舰船方块使用同一套规则。
 
+## 许可与素材署名
+
+代码、工具脚本、文档、语言文件及数据包使用 [MIT 许可](LICENSE-MIT.md)；贴图、模型、方块状态定义等视觉素材使用 [CC BY-NC-SA 4.0](LICENSE-CCBYNCSA.md)。具体文件范围见 [LICENSE.md](LICENSE.md)。视觉素材的使用须遵守署名、非商业及适用的相同方式共享条款；代码的 MIT 许可不覆盖这些素材。
+
+装甲动态检测工具引用 [Create Big Cannons](https://github.com/Cannoneers-of-Create/CreateBigCannons) 的原始检测器贴图，版权归 Cannoneers of Create（Copyright (c) 2022- Cannoneers of Create）。CBC 模组作者为 rbasamoyai，上游贴图团队署名为 rbasamoyai、Milkyfur 和 LopyLuna。贴图未经修改，从已安装的 CBC 在运行时加载。许可为 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)；[官方许可声明](https://github.com/Cannoneers-of-Create/CreateBigCannons/blob/create-v6-1.21.1/LICENSE.md)及详细使用说明见 [NOTICE.md](NOTICE.md)。发布 JAR 同时包含许可全文和署名文件。
+
 ## 依赖与构建
 
 需要 Forge 47、Create Big Cannons 5.8.2、Valkyrien Skies 2 2.3.0-beta.10，以及这些模组自身要求的 Create、Kotlin For Forge 和 Ritchie's Projectile Library。项目已有对应 Gradle 依赖，无需另外添加模组。

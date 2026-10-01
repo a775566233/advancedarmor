@@ -81,6 +81,7 @@ en.update({
     "inspection.advancedarmor.degrees": "%s°",
     "inspection.advancedarmor.trace_limit": "Trace limit reached",
 })
+# CBC texture is referenced unchanged under CC BY-NC-SA 4.0; see NOTICE.md.
 put(ROOT / "assets/advancedarmor/models/item/armor_inspection_tool.json", {
     "parent": "minecraft:item/generated",
     "textures": {"layer0": "createbigcannons:item/block_armor_inspection_tool"},

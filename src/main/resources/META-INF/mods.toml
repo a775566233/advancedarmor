@@ -27,7 +27,7 @@ displayName = "${mod_name}" #mandatory
 # A file name (in the root of the mod JAR) containing a logo for display
 #logoFile="advancedarmor.png" #optional
 # A text field displayed in the mod UI
-#credits="Thanks for this example mod goes to Java" #optional
+credits="CBC inspection texture: Cannoneers of Create; texture team: rbasamoyai, Milkyfur, LopyLuna. CC BY-NC-SA 4.0: https://creativecommons.org/licenses/by-nc-sa/4.0/ . Source: https://github.com/Cannoneers-of-Create/CreateBigCannons . Used unchanged; see NOTICE.md."
 # A text field displayed in the mod UI
 authors = "${mod_authors}" #optional
 # Display Test controls the display for your mod in the server connection screen

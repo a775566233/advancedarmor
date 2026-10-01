@@ -201,6 +201,10 @@ tasks.named('processResources', ProcessResources).configure {
 
 // Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
+    // Ship both license texts and third-party attribution with every release.
+    from(project.projectDir) {
+        include 'LICENSE.md', 'LICENSE-MIT.md', 'LICENSE-CCBYNCSA.md', 'NOTICE.md'
+    }
     manifest {
         attributes(["Specification-Title"     : mod_id,
                     "Specification-Vendor"    : mod_authors,
