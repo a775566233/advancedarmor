@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "advancedarmor:wrought_iron",
+    "advancedarmor:homogeneous_carbon_steel",
+    "advancedarmor:iron_steel_composite",
+    "advancedarmor:nickel_steel",
+    "advancedarmor:harvey_nickel_steel",
+    "advancedarmor:kc_armor",
+    "advancedarmor:knc_armor",
+    "advancedarmor:sts_armor",
+    "advancedarmor:ducol_steel",
+    "advancedarmor:british_plastic_protection"
+  ]
+}

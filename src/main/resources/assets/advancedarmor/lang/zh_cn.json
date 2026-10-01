@@ -1,0 +1,13 @@
+{
+  "block.advancedarmor.wrought_iron": "熟铁",
+  "block.advancedarmor.homogeneous_carbon_steel": "均质碳钢",
+  "block.advancedarmor.iron_steel_composite": "铁—钢复合装甲",
+  "block.advancedarmor.nickel_steel": "镍钢",
+  "block.advancedarmor.harvey_nickel_steel": "Harvey 镍钢",
+  "block.advancedarmor.kc_armor": "KC 渗碳克虏伯装甲",
+  "block.advancedarmor.knc_armor": "KNC 无渗碳克虏伯装甲",
+  "block.advancedarmor.sts_armor": "均质镍铬钢／STS／Class B",
+  "block.advancedarmor.ducol_steel": "Ducol 等高强度船体钢",
+  "block.advancedarmor.british_plastic_protection": "英式塑性防护",
+  "itemGroup.advancedarmor.armor": "高级装甲"
+}

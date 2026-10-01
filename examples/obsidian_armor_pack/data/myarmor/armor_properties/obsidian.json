@@ -1,0 +1,6 @@
+{
+  "block": "minecraft:obsidian",
+  "hardness": 5.0,
+  "toughness": 60.0,
+  "explosion_resistance": 48.0
+}

@@ -1,0 +1,13 @@
+{
+  "block.advancedarmor.wrought_iron": "Wrought Iron",
+  "block.advancedarmor.homogeneous_carbon_steel": "Homogeneous Carbon Steel",
+  "block.advancedarmor.iron_steel_composite": "Iron-Steel Composite Armor",
+  "block.advancedarmor.nickel_steel": "Nickel Steel",
+  "block.advancedarmor.harvey_nickel_steel": "Harvey Nickel Steel",
+  "block.advancedarmor.kc_armor": "KC Cemented Armor",
+  "block.advancedarmor.knc_armor": "KNC Armor",
+  "block.advancedarmor.sts_armor": "STS / Class B Armor",
+  "block.advancedarmor.ducol_steel": "Ducol Hull Steel",
+  "block.advancedarmor.british_plastic_protection": "British Plastic Protection",
+  "itemGroup.advancedarmor.armor": "Advanced Armor"
+}
