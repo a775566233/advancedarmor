@@ -1,0 +1,11 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    { "tag": "forge:ingots/nickel" },
+    { "tag": "forge:ingots/steel" }
+  ],
+  "results": [
+    { "item": "advancedarmor:nickel_steel", "count": 2 }
+  ],
+  "heatRequirement": "heated"
+}

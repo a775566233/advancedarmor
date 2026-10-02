@@ -1,0 +1,6 @@
+{
+  "block": "advancedarmor:wrought_iron_blocks",
+  "hardness": 0.55,
+  "toughness": 16,
+  "explosion_resistance": 30
+}

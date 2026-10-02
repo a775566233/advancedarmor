@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "I K",
+    "IJK",
+    "I K"
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:granite"
+    },
+    "J": {
+      "item": "create:limestone"
+    },
+    "K": {
+      "item": "minecraft:diorite"
+    }
+  },
+  "result": {
+    "item": "advancedarmor:british_plastic_protection",
+    "count": 4
+  }
+}

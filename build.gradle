@@ -28,6 +28,12 @@ java {
     toolchain.languageVersion = JavaLanguageVersion.of(17)
 }
 
+// Empty source set for client development mods, isolated from main compilation
+// and all other run configurations. Its dependencies are not packaged in the JAR.
+sourceSets {
+    clientDev
+}
+
 minecraft {
     // The mappings can be changed at any time and must be in the following format.
     // Channel:   Version:
@@ -95,6 +101,8 @@ minecraft {
         }
 
         client {
+            // Only runClient (and its generated IDE launch) loads these dev mods.
+            source sourceSets.clientDev
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
         }
@@ -145,6 +153,18 @@ repositories {
             includeGroup "curse.maven"
         }
     }
+    maven {
+        url = 'https://maven.latvian.dev/releases'
+        content {
+            includeGroup 'dev.latvian.mods'
+        }
+    }
+    maven {
+        url = 'https://maven.architectury.dev'
+        content {
+            includeGroup 'dev.architectury'
+        }
+    }
 
 }
 
@@ -179,6 +199,15 @@ dependencies {
     implementation fg.deobf("curse.maven:CREATE-328085:5838779")
     implementation fg.deobf("curse.maven:VS-258371:6971390")
     implementation fg.deobf("curse.maven:KotlinForForge-351264:5402061")
+
+    // JEI is only needed while running the development client, not by our code.
+    clientDevRuntimeOnly fg.deobf("curse.maven:JEI-238222:9009995")
+    clientDevRuntimeOnly fg.deobf("curse.maven:JADE-324717:8479276")
+    clientDevRuntimeOnly fg.deobf("curse.maven:IME-231951:6206989")
+    clientDevRuntimeOnly fg.deobf("curse.maven:KUBEJS-238086:8020595")
+    // CurseMaven artifacts do not resolve KubeJS's required mod dependencies.
+    clientDevRuntimeOnly fg.deobf('dev.latvian.mods:rhino-forge:2001.2.3-build.10')
+    clientDevRuntimeOnly fg.deobf('dev.architectury:architectury-forge:9.2.14')
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

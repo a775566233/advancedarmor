@@ -8,11 +8,11 @@ import gzip
 
 ROOT = Path(__file__).resolve().parents[1] / "src/main/resources"
 MATERIALS = [
-    ("wrought_iron", "熟铁", "Wrought Iron", 16, .55, 30, (100, 106, 105), 1),
-    ("homogeneous_carbon_steel", "均质碳钢", "Homogeneous Carbon Steel", 22, .80, 31, (87, 102, 114), 2),
-    ("iron_steel_composite", "铁—钢复合装甲", "Iron-Steel Composite Armor", 27, 1.20, 29, (112, 107, 101), 3),
-    ("nickel_steel", "镍钢", "Nickel Steel", 32, 1.05, 34, (112, 125, 132), 4),
-    ("harvey_nickel_steel", "Harvey 镍钢", "Harvey Nickel Steel", 42, 1.55, 36, (91, 114, 126), 5),
+    ("wrought_iron_blocks", "熟铁块", "Wrought Iron Blocks", 16, .55, 30, (100, 106, 105), 1),
+    ("homogeneous_carbon_steel_armor", "均质碳钢装甲", "Homogeneous Carbon Steel Armor", 22, .80, 31, (87, 102, 114), 2),
+    ("iron_steel_composite_armor", "铁—钢复合装甲", "Iron-Steel Composite Armor", 27, 1.20, 29, (112, 107, 101), 3),
+    ("nickel_steel_armor", "镍钢", "Nickel Steel", 32, 1.05, 34, (112, 125, 132), 4),
+    ("harvey_nickel_steel_armor", "Harvey 镍钢", "Harvey Nickel Steel", 42, 1.55, 36, (91, 114, 126), 5),
     ("kc_armor", "KC 渗碳克虏伯装甲", "KC Cemented Armor", 54, 1.95, 41, (78, 103, 120), 6),
     ("knc_armor", "KNC 无渗碳克虏伯装甲", "KNC Armor", 46, 1.80, 32, (107, 112, 121), 7),
     ("sts_armor", "均质镍铬钢／STS／Class B", "STS / Class B Armor", 38, 1.15, 40, (96, 115, 119), 8),
@@ -64,6 +64,8 @@ for name, chinese, english, toughness, hardness, blast, base, seed in MATERIALS:
 zh["itemGroup.advancedarmor.armor"] = "高级装甲"
 en["itemGroup.advancedarmor.armor"] = "Advanced Armor"
 zh.update({
+    "item.advancedarmor.wrought_iron_ingot": "熟铁锭",
+    "item.advancedarmor.wrought_iron_plate": "熟铁板",
     "item.advancedarmor.armor_inspection_tool": "装甲动态检测工具",
     "inspection.advancedarmor.toughness": "实际韧性：",
     "inspection.advancedarmor.hardness": "硬度：",
@@ -73,6 +75,8 @@ zh.update({
     "inspection.advancedarmor.trace_limit": "达到检测上限",
 })
 en.update({
+    "item.advancedarmor.wrought_iron_ingot": "Wrought Iron Ingot",
+    "item.advancedarmor.wrought_iron_plate": "Wrought Iron Plate",
     "item.advancedarmor.armor_inspection_tool": "Dynamic Armor Inspection Tool",
     "inspection.advancedarmor.toughness": "Effective toughness: ",
     "inspection.advancedarmor.hardness": "Hardness: ",
@@ -90,6 +94,35 @@ put(ROOT / "data/advancedarmor/recipes/armor_inspection_tool.json", {
     "type": "minecraft:crafting_shapeless",
     "ingredients": [{"item": "createbigcannons:block_armor_inspection_tool"}, {"item": "advancedarmor:kc_armor"}],
     "result": {"item": "advancedarmor:armor_inspection_tool"},
+})
+# Built-in recipes mirror the mod's registered items and Create processing chain.
+put(ROOT / "data/advancedarmor/recipes/wrought_iron_ingot_crafting.json", {
+    "type": "minecraft:crafting_shapeless",
+    "ingredients": [{"item": "create:iron_sheet"}, {"item": "minecraft:gunpowder"}],
+    "result": {"item": "advancedarmor:wrought_iron_ingot", "count": 1},
+})
+put(ROOT / "data/advancedarmor/recipes/wrought_iron_ingot_compacting.json", {
+    "type": "create:compacting",
+    "ingredients": [{"item": "create:iron_sheet"}, {"item": "minecraft:gunpowder"}],
+    "results": [{"item": "advancedarmor:wrought_iron_ingot", "count": 1}],
+})
+put(ROOT / "data/advancedarmor/recipes/wrought_iron_plate_pressing.json", {
+    "type": "create:pressing",
+    "ingredients": [{"item": "advancedarmor:wrought_iron_ingot"}],
+    "results": [{"item": "advancedarmor:wrought_iron_plate", "count": 1}],
+})
+put(ROOT / "data/advancedarmor/recipes/wrought_iron_blocks_crafting.json", {
+    "type": "minecraft:crafting_shaped",
+    "pattern": ["III", "III", "III"],
+    "key": {"I": {"item": "advancedarmor:wrought_iron_ingot"}},
+    "result": {"item": "advancedarmor:wrought_iron_blocks", "count": 1},
+})
+put(ROOT / "data/advancedarmor/recipes/iron_steel_composite_compacting.json", {
+    "type": "create:compacting",
+    "heatRequirement": "heated",
+    "ingredients": [{"item": "advancedarmor:wrought_iron_plate"} for _ in range(5)]
+                   + [{"tag": "forge:ingots/steel"} for _ in range(4)],
+    "results": [{"item": "advancedarmor:iron_steel_composite_armor", "count": 1}],
 })
 put(ROOT / "assets/advancedarmor/lang/zh_cn.json", zh)
 put(ROOT / "assets/advancedarmor/lang/en_us.json", en)

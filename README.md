@@ -21,6 +21,14 @@ Minecraft Java 1.20.1 Forge 模组。提供十种舰船装甲方块、CBC 炮弹
 
 JAR 在 `build/libs/`。将它和依赖放到客户端与服务器的 `mods` 目录。
 
+JEI 是可选的客户端开发工具，使用 `clientDevRuntimeOnly fg.deobf("curse.maven:JEI-238222:9009995")` 声明，并仅将 `clientDev` source set 加入 `client` 运行配置。运行 `runClient` 或其生成的 IDE 启动配置时加载；不会进入主代码的编译依赖、`runServer`、`runGameTestServer`、`runData` 或发布 JAR，也不是玩家安装本模组的必要依赖。
+
+## 熟铁装甲内置配方
+
+启动 `runClient` 后即可使用，无需安装额外数据包。熟铁锭由 1 个机械动力铁板（`create:iron_sheet`）和 1 个火药在工作台无序合成，也可以在工作盆中用机械动力混压机处理相同材料；熟铁板由机械动力冲压机在置物台上压制 1 个熟铁锭；熟铁块由 9 个熟铁锭合成。铁—钢复合装甲由 5 个熟铁板和 4 个 `#forge:ingots/steel` 在工作盆中经烈焰人燃烧室普通加热（`heatRequirement: "heated"`）混压得到。
+
+可直接修改 `src/main/resources/data/advancedarmor/recipes/` 下对应 JSON 的输入和输出。混压输入每个条目消耗 1 个物品，数量通过重复条目表示。修改后重新启动 `runClient`；若运行 `tools/generate_assets.py` 重新生成资源，也需同步修改脚本里的对应配方，避免覆盖手动调整。
+
 ## 装甲数据包
 
 每个 JSON 文件放在 `data/<命名空间>/armor_properties/<文件名>.json`。文件名不限；`block` 必须是已注册的方块 ID。例如 `examples/obsidian_armor_pack` 将原版黑曜石加入装甲计算。修改后执行 `/reload`；专用服务器会将数值同步给客户端。
@@ -66,11 +74,11 @@ VS 方块沿舰船局部方块坐标逐格追踪，入射速度与表面法线�
 
 | 方块 ID | 韧性 | 硬度 | 抗爆 |
 |---|---:|---:|---:|
-| `wrought_iron` | 16 | 0.55 | 30 |
-| `homogeneous_carbon_steel` | 22 | 0.80 | 31 |
-| `iron_steel_composite` | 27 | 1.20 | 29 |
-| `nickel_steel` | 32 | 1.05 | 34 |
-| `harvey_nickel_steel` | 42 | 1.55 | 36 |
+| `wrought_iron_blocks` | 16 | 0.55 | 30 |
+| `homogeneous_carbon_steel_armor` | 22 | 0.80 | 31 |
+| `iron_steel_composite_armor` | 27 | 1.20 | 29 |
+| `nickel_steel_armor` | 32 | 1.05 | 34 |
+| `harvey_nickel_steel_armor` | 42 | 1.55 | 36 |
 | `kc_armor` | 54 | 1.95 | 41 |
 | `knc_armor` | 46 | 1.80 | 32 |
 | `sts_armor` | 38 | 1.15 | 40 |

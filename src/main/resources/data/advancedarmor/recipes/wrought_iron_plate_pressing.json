@@ -1,0 +1,14 @@
+{
+  "type": "create:pressing",
+  "ingredients": [
+    {
+      "item": "advancedarmor:wrought_iron_ingot"
+    }
+  ],
+  "results": [
+    {
+      "item": "advancedarmor:wrought_iron_plate",
+      "count": 1
+    }
+  ]
+}

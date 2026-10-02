@@ -1,0 +1,30 @@
+{
+  "type": "create:compacting",
+  "ingredients": [
+    {
+      "item": "advancedarmor:wrought_iron_plate"
+    },
+    {
+      "item": "advancedarmor:wrought_iron_plate"
+    },
+    {
+      "item": "advancedarmor:wrought_iron_plate"
+    },
+    {
+      "item": "advancedarmor:wrought_iron_plate"
+    },
+    {
+      "item": "advancedarmor:wrought_iron_plate"
+    },
+    {
+      "item": "advancedarmor:homogeneous_carbon_steel_armor"
+    }
+  ],
+  "results": [
+    {
+      "item": "advancedarmor:iron_steel_composite_armor",
+      "count": 1
+    }
+  ],
+  "heatRequirement": "heated"
+}

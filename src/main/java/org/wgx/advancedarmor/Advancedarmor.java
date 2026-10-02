@@ -1,6 +1,9 @@
 package org.wgx.advancedarmor;
 
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -25,18 +28,33 @@ public final class Advancedarmor {
     public static final String MODID = "advancedarmor";
     private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
+    public static final RegistryObject<Item> WROUGHT_IRON_INGOT = ITEMS.register("wrought_iron_ingot",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> WROUGHT_IRON_PLATE = ITEMS.register("wrought_iron_plate",
+            () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> NICKEL_STEEL =  ITEMS.register("nickel_steel",
+            () -> new Item(new Item.Properties()));
+//    public static final RegistryObject<Item> NICKEL_CARBON_STEEL = ITEMS.register("nickel_carbon_steel",
+//            () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> ARMOR_INSPECTION_TOOL = ITEMS.register("armor_inspection_tool",
             () -> new Item(new Item.Properties().stacksTo(1)));
     private static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     private static final Map<String, RegistryObject<Block>> ARMOR = new LinkedHashMap<>();
     public static RegistryObject<Block> block(String name) { return ARMOR.get(name); }
 
+    private static final TagKey<Item> WROUGHT_IRON_TAG =
+            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "wrought_iron"));
+
+    private static final TagKey<Item> NICKEL_STEEL_TAG =
+            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "nickel_steel"));
+
+
     static {
-        register("wrought_iron", 0.55f, 30);
-        register("homogeneous_carbon_steel", 0.80f, 31);
-        register("iron_steel_composite", 1.20f, 29);
-        register("nickel_steel", 1.05f, 34);
-        register("harvey_nickel_steel", 1.55f, 36);
+        register("wrought_iron_blocks", 0.55f, 30);
+        register("homogeneous_carbon_steel_armor", 0.80f, 31);
+        register("iron_steel_composite_armor", 1.20f, 29);
+        register("nickel_steel_armor", 1.05f, 34);
+        register("harvey_nickel_steel_armor", 1.55f, 36);
         register("kc_armor", 1.95f, 41);
         register("knc_armor", 1.80f, 32);
         register("sts_armor", 1.15f, 40);
@@ -62,7 +80,11 @@ public final class Advancedarmor {
                 .icon(() -> ARMOR.get("kc_armor").get().asItem().getDefaultInstance())
                 .displayItems((parameters, output) -> {
                     ARMOR.values().forEach(block -> output.accept(block.get()));
+                    output.accept(WROUGHT_IRON_INGOT.get());
+                    output.accept(WROUGHT_IRON_PLATE.get());
                     output.accept(ARMOR_INSPECTION_TOOL.get());
+                    //output.accept(NICKEL_CARBON_STEEL.get());
+                    output.accept(NICKEL_STEEL.get());
                 })
                 .build());
         TABS.register(bus);
@@ -73,4 +95,6 @@ public final class Advancedarmor {
     private void addReloadListener(AddReloadListenerEvent event) {
         event.addListener(new ArmorData());
     }
+
+
 }

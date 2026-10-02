@@ -463,7 +463,7 @@ public final class ArmorGameTests {
 
     @GameTest(template = "empty")
     public static void cbcProjectileAndBlast(GameTestHelper helper) throws Exception {
-        helper.setBlock(1, 2, 1, Advancedarmor.block("wrought_iron").get());
+        helper.setBlock(1, 2, 1, Advancedarmor.block("wrought_iron_blocks").get());
         helper.setBlock(2, 2, 1, Advancedarmor.block("kc_armor").get());
         BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
         BlockPos back = helper.absolutePos(new BlockPos(2, 2, 1));
@@ -487,7 +487,7 @@ public final class ArmorGameTests {
                 "CBC penetration must remove the hit voxel and leave the back armor for the next collision");
         helper.assertTrue(shot.getProjectileMass() < 200, "CBC projectile must spend mass on the current plate voxel");
 
-        helper.setBlock(1, 2, 1, Advancedarmor.block("wrought_iron").get());
+        helper.setBlock(1, 2, 1, Advancedarmor.block("wrought_iron_blocks").get());
         SolidShotProjectile weakShot = type.create(helper.getLevel());
         helper.assertTrue(weakShot != null, "CBC must create the comparison projectile");
         weakShot.setPos(front.getX() - 1, front.getY() + .5, front.getZ() + .5);
@@ -629,8 +629,8 @@ public final class ArmorGameTests {
         net.minecraft.world.item.CreativeModeTab tab = net.minecraft.core.registries.BuiltInRegistries.CREATIVE_MODE_TAB.get(tabId);
         helper.assertTrue(tab.getIconItem().is(Advancedarmor.block("kc_armor").get().asItem()),
                 "KC armor must be the creative tab icon");
-        for (String name : new String[] {"wrought_iron", "homogeneous_carbon_steel", "iron_steel_composite",
-                "nickel_steel", "harvey_nickel_steel", "kc_armor", "knc_armor", "sts_armor",
+        for (String name : new String[] {"wrought_iron_blocks", "homogeneous_carbon_steel_armor", "iron_steel_composite_armor",
+                "nickel_steel_armor", "harvey_nickel_steel_armor", "kc_armor", "knc_armor", "sts_armor",
                 "ducol_steel", "british_plastic_protection"}) {
             helper.assertTrue(net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(
                     new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, name)),
@@ -640,6 +640,13 @@ public final class ArmorGameTests {
                         new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, "armor_inspection_tool"))
                         == Advancedarmor.ARMOR_INSPECTION_TOOL.get(),
                 "The dynamic armor inspection item must be registered on the server too");
+        helper.assertTrue(net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                        new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, "wrought_iron_ingot"))
+                        == Advancedarmor.WROUGHT_IRON_INGOT.get()
+                        && net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(
+                        new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, "wrought_iron_plate"))
+                        == Advancedarmor.WROUGHT_IRON_PLATE.get(),
+                "Wrought iron ingot and plate must be registered on the server too");
         helper.succeed();
     }
 }

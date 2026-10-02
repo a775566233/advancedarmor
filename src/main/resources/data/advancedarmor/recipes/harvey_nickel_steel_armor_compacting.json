@@ -1,0 +1,18 @@
+{
+  "type": "create:compacting",
+  "ingredients": [
+    {
+      "item": "advancedarmor:nickel_steel_armor"
+    },
+    {
+      "tag": "minecraft:coals"
+    }
+  ],
+  "results": [
+    {
+      "item": "advancedarmor:harvey_nickel_steel_armor",
+      "count": 1
+    }
+  ],
+  "heatRequirement": "heated"
+}

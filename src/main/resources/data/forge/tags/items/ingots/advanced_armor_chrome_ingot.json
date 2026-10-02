@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    {
+      "id": "#forge:ingots/chrome_ingot",
+      "required": false
+    },
+    {
+      "id": "#forge:ingots/chromium_ingot",
+      "required": false
+    }
+  ]
+}

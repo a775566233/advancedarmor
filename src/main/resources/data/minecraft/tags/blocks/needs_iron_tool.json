@@ -1,11 +1,11 @@
 {
   "replace": false,
   "values": [
-    "advancedarmor:wrought_iron",
-    "advancedarmor:homogeneous_carbon_steel",
-    "advancedarmor:iron_steel_composite",
-    "advancedarmor:nickel_steel",
-    "advancedarmor:harvey_nickel_steel",
+    "advancedarmor:wrought_iron_blocks",
+    "advancedarmor:homogeneous_carbon_steel_armor",
+    "advancedarmor:iron_steel_composite_armor",
+    "advancedarmor:nickel_steel_armor",
+    "advancedarmor:harvey_nickel_steel_armor",
     "advancedarmor:kc_armor",
     "advancedarmor:knc_armor",
     "advancedarmor:sts_armor",

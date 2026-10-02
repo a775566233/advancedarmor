@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "advancedarmor:block/homogeneous_carbon_steel_armor"
+  }
+}

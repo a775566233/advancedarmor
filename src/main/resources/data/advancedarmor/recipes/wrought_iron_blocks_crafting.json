@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    "III",
+    "III"
+  ],
+  "key": {
+    "I": {
+      "item": "advancedarmor:wrought_iron_ingot"
+    }
+  },
+  "result": {
+    "item": "advancedarmor:wrought_iron_blocks",
+    "count": 1
+  }
+}

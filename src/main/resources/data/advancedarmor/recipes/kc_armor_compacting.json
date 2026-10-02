@@ -1,0 +1,71 @@
+{
+  "type": "forge:conditional",
+  "recipes": [
+    {
+      "conditions": [
+        {
+          "type": "forge:not",
+          "value": {
+            "type": "forge:tag_empty",
+            "tag": "advancedarmor:advanced_armor_chrome_ingot"
+          }
+        }
+      ],
+      "recipe": {
+        "type": "create:compacting",
+        "ingredients": [
+          {
+            "fluid": "createbigcannons:molten_steel",
+            "amount": 250
+          },
+          {
+            "tag": "forge:ingots/nickel"
+          },
+          {
+            "tag": "advancedarmor:advanced_armor_chrome_ingot"
+          },
+          {
+            "tag": "minecraft:coals"
+          }
+        ],
+        "results": [
+          {
+            "item": "advancedarmor:kc_armor",
+            "count": 1
+          }
+        ],
+        "heatRequirement": "superheated"
+      }
+    },
+    {
+      "conditions": [
+        {
+          "type": "forge:tag_empty",
+          "tag": "advancedarmor:advanced_armor_chrome_ingot"
+        }
+      ],
+      "recipe": {
+        "type": "create:compacting",
+        "ingredients": [
+          {
+            "fluid": "createbigcannons:molten_steel",
+            "amount": 500
+          },
+          {
+            "tag": "forge:ingots/nickel"
+          },
+          {
+            "tag": "minecraft:coals"
+          }
+        ],
+        "results": [
+          {
+            "item": "advancedarmor:kc_armor",
+            "count": 1
+          }
+        ],
+        "heatRequirement": "superheated"
+      }
+    }
+  ]
+}
