@@ -73,27 +73,31 @@ public final class ArmorImpactContext implements AutoCloseable {
 
     public static double hardness(Level level, BlockState state, BlockPos pos, double fallback) {
         ArmorImpactContext context = matching(level, state, pos);
-        return context == null ? fallback : context.armor.hardness();
+        return context == null ? fallback : context.dynamicHardness();
     }
 
     public double dynamicToughness() {
         return profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.totalToughness();
     }
 
+    public double dynamicHardness() {
+        return profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.effectiveHardness();
+    }
+
     /** Addon adapters must use this value when charging only the struck block. */
     public double baseToughness() { return armor.toughness(); }
 
     public double hardnessMultiplier() {
-        return 1 + Math.max(0, armor.hardness() - shell.penetration());
+        return 1 + Math.max(0, dynamicHardness() - shell.penetration());
     }
 
     public double massCost() {
         return ArmorImpactPhysics.massCost(baseToughness(),
-                armor.hardness() - shell.penetration(), speed, cosine);
+                dynamicHardness() - shell.penetration(), speed, cosine);
     }
 
     public double bounceChance(double baseChance) {
-        return ArmorImpactPhysics.bounceChance(baseChance, cosine, shell.deflection(), armor.hardness(), shell.penetration());
+        return ArmorImpactPhysics.bounceChance(baseChance, cosine, shell.deflection(), dynamicHardness(), shell.penetration());
     }
 
     @Override

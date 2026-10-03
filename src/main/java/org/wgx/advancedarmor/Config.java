@@ -17,6 +17,13 @@ public final class Config {
             .defineInRange("blastAirLoss", 2.0, 0, 1000);
     public static final ForgeConfigSpec.IntValue BLAST_DISTANCE = BUILDER.comment("Hard limit on blast travel; normally twice CBC's explosion radius.")
             .defineInRange("blastMaxDistance", 64, 1, 128);
+
+    public static final ForgeConfigSpec.DoubleValue HARDNESS_INCREMENT_COEFFICIENT = BUILDER.comment("Hardness increment coefficient")
+            .defineInRange("hardnessIncrementCoefficient", 0.5, 0.1, 1);
+    public static final ForgeConfigSpec.DoubleValue MAXIMUM_HARDNESS_INCREMENT = BUILDER.comment("Maximum hardness increment")
+            .defineInRange("maximumHardnessIncrement", 1, 0.1, 1);
+    public static final ForgeConfigSpec.DoubleValue FIXED_REFERENCE_HARDNESS = BUILDER.comment("Fixed reference hardness")
+            .defineInRange("fixedReferenceHardness", 1.95, 0.1, 3);
     public static final ForgeConfigSpec SPEC = BUILDER.build();
     private Config() {}
 }

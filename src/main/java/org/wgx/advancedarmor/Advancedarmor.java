@@ -50,16 +50,16 @@ public final class Advancedarmor {
 
 
     static {
-        register("wrought_iron_blocks", 0.55f, 30);
-        register("homogeneous_carbon_steel_armor", 0.80f, 31);
+        register("wrought_iron_blocks", 1f, 30);
+        register("homogeneous_carbon_steel_armor", 1f, 31);
         register("iron_steel_composite_armor", 1.20f, 29);
         register("nickel_steel_armor", 1.05f, 34);
         register("harvey_nickel_steel_armor", 1.55f, 36);
-        register("kc_armor", 1.95f, 41);
+        register("kc_armor", 2f, 41);
         register("knc_armor", 1.80f, 32);
         register("sts_armor", 1.15f, 40);
-        register("ducol_steel", 0.85f, 32);
-        register("british_plastic_protection", 0.25f, 18);
+        register("ducol_steel_armor", 1.02f, 32);
+        register("british_plastic_protection_armor", 1f, 18);
     }
 
     private static void register(String name, float hardness, float resistance) {

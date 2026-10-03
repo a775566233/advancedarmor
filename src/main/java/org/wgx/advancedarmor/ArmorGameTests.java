@@ -15,6 +15,7 @@ import org.wgx.advancedarmor.compat.ShipSpace;
 import org.wgx.advancedarmor.physics.BlastEnergy;
 import org.wgx.advancedarmor.physics.VoxelRay;
 import rbasamoyai.createbigcannons.config.CBCCfgMunitions;
+import rbasamoyai.createbigcannons.config.CBCConfigs;
 import rbasamoyai.createbigcannons.munitions.ProjectileContext;
 import rbasamoyai.createbigcannons.munitions.AbstractCannonProjectile;
 import rbasamoyai.createbigcannons.munitions.big_cannon.AbstractBigCannonProjectile;
@@ -22,6 +23,7 @@ import rbasamoyai.createbigcannons.munitions.big_cannon.ap_shell.APShellProjecti
 import rbasamoyai.createbigcannons.munitions.big_cannon.solid_shot.SolidShotProjectile;
 import rbasamoyai.createbigcannons.munitions.ShellExplosion;
 import rbasamoyai.createbigcannons.block_armor_properties.BlockArmorPropertiesHandler;
+import rbasamoyai.createbigcannons.munitions.config.components.BallisticPropertiesComponent;
 
 import java.lang.reflect.Method;
 
@@ -42,6 +44,23 @@ public final class ArmorGameTests {
     private static EntityType<SolidShotProjectile> solidShotType() {
         return (EntityType<SolidShotProjectile>) net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getValue(
                 new net.minecraft.resources.ResourceLocation("createbigcannons", "shot"));
+    }
+
+    /** Fix the screenshot's speed and penetration rating without force corrections. */
+    private static final class CalibratedAPShell extends APShellProjectile {
+        @SuppressWarnings("unchecked")
+        private CalibratedAPShell(Level level) {
+            super((EntityType<APShellProjectile>) net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES.getValue(
+                    new net.minecraft.resources.ResourceLocation("createbigcannons", "ap_shell")), level);
+        }
+
+        @Override
+        protected Vec3 getForces(Vec3 position, Vec3 movement) { return Vec3.ZERO; }
+
+        @Override
+        protected BallisticPropertiesComponent getBallisticProperties() {
+            return new BallisticPropertiesComponent(0, 0, false, 14, 2.05f, 1, .7f);
+        }
     }
 
     /** Mimics an addon that overrides penetration without calling super. */
@@ -83,13 +102,18 @@ public final class ArmorGameTests {
         straight.setPos(front.getX() - .5, front.getY() + .5, front.getZ() + .5);
         straight.setDeltaMovement(1, 0, 0);
         straight.destroyBeforeQuery = true;
+        ArmorInspection.Result inspected = ArmorInspection.inspect(helper.getLevel(),
+                new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
+                        Direction.WEST, front, false), new Vec3(1, 0, 0));
         straight.collide();
         helper.assertTrue(straight.impacts == 1 && Math.abs(straight.observedToughness - 162) < .001
-                        && Math.abs(straight.observedHardness - 1.95) < .001,
+                        && inspected != null && inspected.hardness() > 1.95
+                        && Math.abs(straight.observedHardness - inspected.hardness()) < .001,
                 "An addon override must see all three armor blocks, even after it destroys backing armor");
         helper.assertTrue(ArmorImpactContext.current(straight) == null
-                        && provider.toughness(helper.getLevel(), state, front, true) == 54,
-                "Impact context must disappear and ordinary queries must return base toughness");
+                        && provider.toughness(helper.getLevel(), state, front, true) == 54
+                        && provider.hardness(helper.getLevel(), state, front, true) == 1.95,
+                "Impact context must disappear and ordinary queries must return base attributes");
 
         CustomPenetrationShot side = new CustomPenetrationShot(helper.getLevel());
         side.setPos(front.getX() + .5, front.getY() + .5, front.getZ() - .5);
@@ -299,6 +323,85 @@ public final class ArmorGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void dynamicHardnessIncreasesCbcMassDebit(GameTestHelper helper) throws Exception {
+        for (int x = 1; x <= 3; x++) helper.setBlock(x, 2, 1, Advancedarmor.block("kc_armor").get());
+        helper.setBlock(4, 2, 1, Blocks.AIR);
+        BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
+        CalibratedAPShell shell = new CalibratedAPShell(helper.getLevel());
+        shell.setPos(front.getX() - .5, front.getY() + .5, front.getZ() + .5);
+        shell.setDeltaMovement(12, 0, 0);
+        shell.setProjectileMass(100);
+        Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
+                ProjectileContext.class, BlockState.class, BlockHitResult.class);
+        impact.setAccessible(true);
+        ProjectileContext projectileContext = new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE);
+        double[] losses = new double[3];
+        for (int i = 0; i < 3; i++) {
+            BlockPos pos = front.east(i);
+            BlockHitResult hit = new BlockHitResult(new Vec3(pos.getX(), pos.getY() + .5, pos.getZ() + .5),
+                    Direction.WEST, pos, false);
+            BlockState state = helper.getLevel().getBlockState(pos);
+            ArmorInspection.Result inspected = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
+            helper.assertTrue(inspected != null && inspected.blocks() == 3 - i,
+                    "Each impact must inspect only the remaining contiguous armor");
+            double expectedLoss = 54 * (1 + Math.max(0, inspected.hardness() - 2.05f)) / 12;
+            float before = shell.getProjectileMass();
+            invokeImpact(impact, shell, projectileContext, state, hit);
+            losses[i] = before - shell.getProjectileMass();
+            helper.assertTrue(helper.getLevel().getBlockState(pos).isAir()
+                            && Math.abs(losses[i] - expectedLoss) < .001,
+                    "CBC must debit one full block using inspected dynamic hardness; expected "
+                            + expectedLoss + ", observed " + losses[i]);
+            helper.assertTrue(ArmorImpactContext.current(shell) == null
+                            && BlockArmorPropertiesHandler.getProperties(state)
+                            .hardness(helper.getLevel(), state, pos, true) == 1.95,
+                    "Dynamic hardness must not escape the impact scope");
+        }
+        helper.assertTrue(losses[0] > 54.0 / 12 && Math.abs(losses[2] - 54.0 / 12) < .001,
+                "Three KC layers must cost more than an isolated KC block below the shell penetration rating");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void dynamicHardnessRaisesCbcPenetrationGate(GameTestHelper helper) throws Exception {
+        for (int x = 1; x <= 3; x++) helper.setBlock(x, 2, 1, Advancedarmor.block("kc_armor").get());
+        helper.setBlock(4, 2, 1, Blocks.AIR);
+        BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
+        BlockHitResult hit = new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
+                Direction.WEST, front, false);
+        ArmorInspection.Result inspected = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
+        helper.assertTrue(inspected != null && inspected.hardness() > 2.05,
+                "The three-layer fixture must exceed the shell penetration rating");
+        double multiplier = 1 + Math.max(0, inspected.hardness() - 2.05f);
+        double budget = inspected.toughness() * (1 + multiplier) / 2;
+        double velocityBonus = 1 + Math.max(0,
+                (12 - CBCConfigs.SERVER.munitions.minVelocityForPenetrationBonus.getF())
+                        * CBCConfigs.SERVER.munitions.penetrationBonusScale.getF());
+        CalibratedAPShell shell = new CalibratedAPShell(helper.getLevel());
+        shell.setPos(front.getX() - .5, front.getY() + .5, front.getZ() + .5);
+        shell.setDeltaMovement(12, 0, 0);
+        shell.setProjectileMass((float) (budget / (12 * velocityBonus)));
+        Method impact = AbstractBigCannonProjectile.class.getDeclaredMethod("calculateBlockPenetration",
+                ProjectileContext.class, BlockState.class, BlockHitResult.class);
+        impact.setAccessible(true);
+        invokeImpact(impact, shell, new ProjectileContext(shell, CBCCfgMunitions.GriefState.ALL_DAMAGE),
+                helper.getLevel().getBlockState(front), hit);
+        helper.assertTrue(!helper.getLevel().getBlockState(front).isAir() && shell.getProjectileMass() == 0,
+                "A budget above base toughness but below the dynamic-hardness gate must stop before the plate");
+
+        for (int y = 2; y <= 8; y++) helper.setBlock(1, y, 1, Advancedarmor.block("kc_armor").get());
+        helper.setBlock(1, 9, 1, Blocks.AIR);
+        shell.setDeltaMovement(12 * .2, 12 * Math.sqrt(1 - .2 * .2), 0);
+        try (ArmorImpactContext context = ArmorImpactContext.open(shell, helper.getLevel().getBlockState(front), hit)) {
+            double expected = ArmorImpactPhysics.bounceChance(.33, .2, .7f, context.dynamicHardness(), 2.05f);
+            double base = ArmorImpactPhysics.bounceChance(.33, .2, .7f, 1.95, 2.05f);
+            helper.assertTrue(expected > base && Math.abs(context.bounceChance(.33) - expected) < 1.0e-6,
+                    "Ricochet must use the same snapshot hardness as the provider and penetration gate");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void obliqueImpactUsesCbcFullBlockMassDebit(GameTestHelper helper) throws Exception {
         BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
         double angle = Math.toRadians(40.81);
@@ -387,9 +490,10 @@ public final class ArmorGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void apShellLosesMassAcrossFourLayerPlate(GameTestHelper helper) throws Exception {
+    public static void apShellStopsBeforeDynamicFourLayerPlate(GameTestHelper helper) throws Exception {
         for (int x = 1; x <= 4; x++)
             helper.setBlock(x, 2, 1, Advancedarmor.block("knc_armor").get());
+        helper.setBlock(5, 2, 1, Blocks.AIR);
         BlockPos front = helper.absolutePos(new BlockPos(1, 2, 1));
         @SuppressWarnings("unchecked")
         net.minecraft.world.entity.EntityType<APShellProjectile> type =
@@ -405,18 +509,18 @@ public final class ArmorGameTests {
         Method collision = AbstractCannonProjectile.class.getDeclaredMethod("clipAndDamage");
         collision.setAccessible(true);
         collision.invoke(shell);
-        helper.assertTrue(helper.getLevel().getBlockState(front).isAir(),
-                "The AP shell must penetrate the first KNC block");
-        helper.assertTrue(!helper.getLevel().getBlockState(front.east()).isAir()
+        helper.assertTrue(!helper.getLevel().getBlockState(front).isAir()
+                        && !helper.getLevel().getBlockState(front.east()).isAir()
                         && !helper.getLevel().getBlockState(front.east(2)).isAir()
                         && !helper.getLevel().getBlockState(front.east(3)).isAir(),
-                "After the first dynamic plate gate, the AP shell must stop before KNC layer two");
+                "The dynamic hardness of four KNC layers must stop this shell before the first layer");
         helper.assertTrue(shell.getProjectileMass() == 0,
-                "CBC must exhaust projectile mass when the second layer stops the shell");
+                "CBC must exhaust projectile mass when the plate stops the shell");
 
         // Independently check the numeric debit for one full block. CBC's speed
         // bonus may help the penetration check, but must not divide this debit.
         helper.setBlock(1, 2, 1, Advancedarmor.block("knc_armor").get());
+        for (int x = 2; x <= 4; x++) helper.setBlock(x, 2, 1, Blocks.AIR);
         APShellProjectile singleHit = type.create(helper.getLevel());
         helper.assertTrue(singleHit != null, "CBC must create the mass accounting shell");
         singleHit.setPos(front.getX() - .5, front.getY() + .5, front.getZ() + .5);
@@ -575,9 +679,11 @@ public final class ArmorGameTests {
         BlockHitResult hit = new BlockHitResult(new Vec3(front.getX(), front.getY() + .5, front.getZ() + .5),
                 Direction.WEST, front, false);
         ArmorInspection.Result straight = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
+        ArmorPhysics.Profile straightProfile = ArmorPhysics.trace(helper.getLevel(), hit, new Vec3(1, 0, 0));
         helper.assertTrue(straight != null && Math.abs(straight.toughness() - 162) < .001
-                        && straight.hardness() == 1.95 && straight.blocks() == 3 && straight.angleDegrees() == 0,
-                "Inspection must show the three-layer path, struck material hardness, and normal incidence");
+                        && straight.hardness() == straightProfile.effectiveHardness() && straight.hardness() > 1.95
+                        && straight.blocks() == 3 && straight.angleDegrees() == 0,
+                "Inspection must show the three-layer path, dynamic hardness, and normal incidence");
 
         BlockHitResult sideHit = new BlockHitResult(new Vec3(front.getX() + .5, front.getY() + .5, front.getZ()),
                 Direction.NORTH, front, false);
@@ -594,6 +700,7 @@ public final class ArmorGameTests {
         ArmorPhysics.Profile impact = ArmorPhysics.trace(helper.getLevel(), hit, direction);
         helper.assertTrue(angled != null && angled.blocks() == impact.blocks()
                         && angled.toughness() == impact.totalToughness()
+                        && angled.hardness() == impact.effectiveHardness()
                         && Math.abs(angled.toughness() - 108 * Math.sqrt(1.25)) < .001
                         && Math.abs(angled.angleDegrees() - Math.toDegrees(Math.atan(.5))) < .001,
                 "Inspection must match the projectile path with the secant factor exactly once");

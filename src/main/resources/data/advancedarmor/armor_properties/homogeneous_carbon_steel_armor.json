@@ -1,6 +1,6 @@
 {
   "block": "advancedarmor:homogeneous_carbon_steel_armor",
-  "hardness": 0.8,
+  "hardness": 1,
   "toughness": 22,
   "explosion_resistance": 31
 }

@@ -6,7 +6,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "advancedarmor:ducol_steel"
+          "name": "advancedarmor:ducol_steel_armor"
         }
       ],
       "conditions": [

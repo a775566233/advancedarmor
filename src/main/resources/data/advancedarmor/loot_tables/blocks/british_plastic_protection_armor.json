@@ -6,7 +6,7 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "advancedarmor:british_plastic_protection"
+          "name": "advancedarmor:british_plastic_protection_armor"
         }
       ],
       "conditions": [

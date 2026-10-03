@@ -31,7 +31,8 @@ public final class ArmorInspection {
             // Path length already accounts for sec(angle); multiplying again
             // would make inspection disagree with the actual penetration gate.
             double toughness = profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.totalToughness();
-            return new Result(toughness, armor.hardness(), profile.blocks(), angle);
+            double hardness = profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.effectiveHardness();
+            return new Result(toughness, hardness, profile.blocks(), angle);
         }
 
         // Ordinary blocks keep CBC's single-block attributes and penetration model.
