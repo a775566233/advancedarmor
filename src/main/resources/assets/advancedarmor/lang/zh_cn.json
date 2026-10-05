@@ -19,6 +19,10 @@
   "inspection.advancedarmor.hardness": "硬度：",
   "inspection.advancedarmor.blocks": "方块数量：",
   "inspection.advancedarmor.angle": "模拟入射角度：",
+  "inspection.advancedarmor.damage": "当前方块损坏等级：",
+  "inspection.advancedarmor.block_toughness": "当前方块韧性：",
+  "inspection.advancedarmor.toughness_loss": "当前方块韧性损失：",
+  "inspection.advancedarmor.percent": "%s%%",
   "inspection.advancedarmor.degrees": "%s°",
   "inspection.advancedarmor.trace_limit": "达到检测上限"
 }

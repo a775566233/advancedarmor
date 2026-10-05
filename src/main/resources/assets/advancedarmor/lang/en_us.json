@@ -19,6 +19,10 @@
   "inspection.advancedarmor.hardness": "Hardness: ",
   "inspection.advancedarmor.blocks": "Block count: ",
   "inspection.advancedarmor.angle": "Simulated impact angle: ",
+  "inspection.advancedarmor.damage": "Current block damage: ",
+  "inspection.advancedarmor.block_toughness": "Current block toughness: ",
+  "inspection.advancedarmor.toughness_loss": "Current block toughness loss: ",
+  "inspection.advancedarmor.percent": "%s%%",
   "inspection.advancedarmor.degrees": "%s°",
   "inspection.advancedarmor.trace_limit": "Trace limit reached"
 }

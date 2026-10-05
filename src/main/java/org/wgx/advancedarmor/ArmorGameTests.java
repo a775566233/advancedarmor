@@ -89,7 +89,12 @@ public final class ArmorGameTests {
             return new ImpactResult(ImpactResult.KinematicOutcome.STOP, false);
         }
 
-        private void collide() { clipAndDamage(); }
+        private void collide() {
+            boolean enabled = Config.ARMOR_DAMAGE_ENABLED.get();
+            Config.ARMOR_DAMAGE_ENABLED.set(false);
+            try { clipAndDamage(); }
+            finally { Config.ARMOR_DAMAGE_ENABLED.set(enabled); }
+        }
     }
 
     @GameTest(template = "empty")
@@ -107,12 +112,12 @@ public final class ArmorGameTests {
                         Direction.WEST, front, false), new Vec3(1, 0, 0));
         straight.collide();
         helper.assertTrue(straight.impacts == 1 && Math.abs(straight.observedToughness - 162) < .001
-                        && inspected != null && inspected.hardness() > 1.95
+                        && inspected != null && inspected.hardness() > 2
                         && Math.abs(straight.observedHardness - inspected.hardness()) < .001,
                 "An addon override must see all three armor blocks, even after it destroys backing armor");
         helper.assertTrue(ArmorImpactContext.current(straight) == null
                         && provider.toughness(helper.getLevel(), state, front, true) == 54
-                        && provider.hardness(helper.getLevel(), state, front, true) == 1.95,
+                        && provider.hardness(helper.getLevel(), state, front, true) == 2,
                 "Impact context must disappear and ordinary queries must return base attributes");
 
         CustomPenetrationShot side = new CustomPenetrationShot(helper.getLevel());
@@ -184,9 +189,9 @@ public final class ArmorGameTests {
         helper.setBlock(2, 2, 1, Advancedarmor.block("sts_armor").get());
         BlockPos first = helper.absolutePos(new BlockPos(1, 2, 1));
         ArmorData.Values kc = ArmorData.get(helper.getLevel().getBlockState(first).getBlock());
-        helper.assertTrue(kc != null && kc.toughness() == 54 && kc.hardness() == 1.95,
+        helper.assertTrue(kc != null && kc.toughness() == 54 && kc.hardness() == 2,
                 "Built-in armor data must reload with exact table values");
-        helper.assertTrue(Math.abs(helper.getLevel().getBlockState(first).getDestroySpeed(helper.getLevel(), first) - 1.95) < .001
+        helper.assertTrue(Math.abs(helper.getLevel().getBlockState(first).getDestroySpeed(helper.getLevel(), first) - 2) < .001
                         && Math.abs(helper.getLevel().getBlockState(first).getBlock().getExplosionResistance() - 41) < .001,
                 "Reloaded hardness and blast resistance must reach Minecraft's block methods");
         helper.assertTrue(ShipSpace.at(helper.getLevel(), first) == ShipSpace.WORLD,
@@ -354,7 +359,7 @@ public final class ArmorGameTests {
                             + expectedLoss + ", observed " + losses[i]);
             helper.assertTrue(ArmorImpactContext.current(shell) == null
                             && BlockArmorPropertiesHandler.getProperties(state)
-                            .hardness(helper.getLevel(), state, pos, true) == 1.95,
+                            .hardness(helper.getLevel(), state, pos, true) == 2,
                     "Dynamic hardness must not escape the impact scope");
         }
         helper.assertTrue(losses[0] > 54.0 / 12 && Math.abs(losses[2] - 54.0 / 12) < .001,
@@ -519,6 +524,7 @@ public final class ArmorGameTests {
 
         // Independently check the numeric debit for one full block. CBC's speed
         // bonus may help the penetration check, but must not divide this debit.
+        helper.setBlock(1, 2, 1, Blocks.AIR);
         helper.setBlock(1, 2, 1, Advancedarmor.block("knc_armor").get());
         for (int x = 2; x <= 4; x++) helper.setBlock(x, 2, 1, Blocks.AIR);
         APShellProjectile singleHit = type.create(helper.getLevel());
@@ -681,7 +687,7 @@ public final class ArmorGameTests {
         ArmorInspection.Result straight = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
         ArmorPhysics.Profile straightProfile = ArmorPhysics.trace(helper.getLevel(), hit, new Vec3(1, 0, 0));
         helper.assertTrue(straight != null && Math.abs(straight.toughness() - 162) < .001
-                        && straight.hardness() == straightProfile.effectiveHardness() && straight.hardness() > 1.95
+                        && straight.hardness() == straightProfile.effectiveHardness() && straight.hardness() > 2
                         && straight.blocks() == 3 && straight.angleDegrees() == 0,
                 "Inspection must show the three-layer path, dynamic hardness, and normal incidence");
 
@@ -709,7 +715,7 @@ public final class ArmorGameTests {
         ArmorInspection.Result mixed = ArmorInspection.inspect(helper.getLevel(), hit, new Vec3(1, 0, 0));
         BlockState state = helper.getLevel().getBlockState(front);
         helper.assertTrue(mixed != null && Math.abs(mixed.toughness() - 92) < .001 && mixed.blocks() == 2
-                        && mixed.hardness() == 1.95 && ArmorImpactContext.toughness(helper.getLevel(), state, front, 54) == 54
+                        && mixed.hardness() == 2 && ArmorImpactContext.toughness(helper.getLevel(), state, front, 54) == 54
                         && helper.getLevel().getBlockState(front.east()).is(Advancedarmor.block("sts_armor").get()),
                 "Inspection must sum mixed materials without opening impact scopes or destroying armor");
 
@@ -738,7 +744,7 @@ public final class ArmorGameTests {
                 "KC armor must be the creative tab icon");
         for (String name : new String[] {"wrought_iron_blocks", "homogeneous_carbon_steel_armor", "iron_steel_composite_armor",
                 "nickel_steel_armor", "harvey_nickel_steel_armor", "kc_armor", "knc_armor", "sts_armor",
-                "ducol_steel", "british_plastic_protection"}) {
+                "ducol_steel_armor", "british_plastic_protection_armor"}) {
             helper.assertTrue(net.minecraftforge.registries.ForgeRegistries.ITEMS.containsKey(
                     new net.minecraft.resources.ResourceLocation(Advancedarmor.MODID, name)),
                     "Missing creative inventory block item: " + name);

@@ -45,8 +45,10 @@ public final class ArmorPhysics {
                         allHardness.add(Double.POSITIVE_INFINITY);
                     }
                     double thickness = exit - enter;
-                    result[0] += armor.toughness() * thickness;
-                    if (pos.equals(hit.getBlockPos())) result[1] += armor.toughness() * thickness;
+                    double effectiveToughness = ArmorDamageState.effectiveToughness(level, pos,
+                            level.getBlockState(pos), armor.toughness());
+                    result[0] += effectiveToughness * thickness;
+                    if (pos.equals(hit.getBlockPos())) result[1] += effectiveToughness * thickness;
                     result[2] += thickness;
                     blocks[0]++;
                     return true;
@@ -54,7 +56,7 @@ public final class ArmorPhysics {
         double effectiveHardness = 0;
         if (allHardness.size() == 1) {
             effectiveHardness =  allHardness.get(0);
-        } else {
+        } else if (!allHardness.isEmpty()) {
             double S = 0;
             for (int i = 1; i < allHardness.size(); i++) {
                 S += (allHardness.get(i) / Config.FIXED_REFERENCE_HARDNESS.get()) * (i - 1);

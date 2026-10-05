@@ -16,6 +16,7 @@ import org.wgx.advancedarmor.Advancedarmor;
 import org.wgx.advancedarmor.ArmorInspection;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -42,12 +43,18 @@ public final class ArmorInspectionOverlay {
         if (result == null) return;
         Component toughness = Double.isFinite(result.toughness()) ? number(result.toughness())
                 : Component.translatable("inspection.advancedarmor.trace_limit");
-        List<Component> lines = List.of(
+        List<Component> lines = new ArrayList<>(List.of(
                 minecraft.level.getBlockState(hit.getBlockPos()).getBlock().getName().withStyle(ChatFormatting.AQUA),
                 line("toughness", toughness),
                 line("hardness", number(result.hardness())),
                 line("blocks", Component.literal(Integer.toString(result.blocks()))),
-                line("angle", Component.translatable("inspection.advancedarmor.degrees", number(result.angleDegrees()))));
+                line("angle", Component.translatable("inspection.advancedarmor.degrees", number(result.angleDegrees())))));
+        if (result.maxDamageLevel() > 0) {
+            lines.add(line("damage", Component.literal(result.damageLevel() + "/" + result.maxDamageLevel())));
+            lines.add(line("block_toughness", number(result.blockToughness())));
+            lines.add(line("toughness_loss", Component.translatable("inspection.advancedarmor.percent",
+                    number(result.toughnessLossPercent()))));
+        }
         // Minecraft's tooltip layout wraps long translations and keeps the panel
         // on screen at small resolutions and large GUI scales.
         graphics.renderTooltip(minecraft.font, lines, Optional.empty(), width / 2 + 12, height / 2 + 24);

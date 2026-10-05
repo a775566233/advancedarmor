@@ -12,7 +12,8 @@ import rbasamoyai.createbigcannons.utils.CBCUtils;
 public final class ArmorInspection {
     private ArmorInspection() {}
 
-    public record Result(double toughness, double hardness, int blocks, double angleDegrees) {}
+    public record Result(double toughness, double hardness, int blocks, double angleDegrees,
+                         int damageLevel, int maxDamageLevel, double blockToughness, double toughnessLossPercent) {}
 
     public static Result inspect(Level level, BlockHitResult hit, Vec3 viewDirection) {
         if (hit.getType() != HitResult.Type.BLOCK || !level.isLoaded(hit.getBlockPos())
@@ -32,12 +33,15 @@ public final class ArmorInspection {
             // would make inspection disagree with the actual penetration gate.
             double toughness = profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.totalToughness();
             double hardness = profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.effectiveHardness();
-            return new Result(toughness, hardness, profile.blocks(), angle);
+            ArmorDamageState.Status damage = ArmorDamageState.get(level, hit.getBlockPos(), state);
+            return new Result(toughness, hardness, profile.blocks(), angle, damage.level(), damage.maxLevel(),
+                    armor.toughness() * damage.multiplier(), 100 * (1 - damage.multiplier()));
         }
 
         // Ordinary blocks keep CBC's single-block attributes and penetration model.
         var provider = BlockArmorPropertiesHandler.getProperties(state);
         return new Result(provider.toughness(level, state, hit.getBlockPos(), true),
-                provider.hardness(level, state, hit.getBlockPos(), true), 1, angle);
+                provider.hardness(level, state, hit.getBlockPos(), true), 1, angle, 0, 0,
+                provider.toughness(level, state, hit.getBlockPos(), true), 0);
     }
 }

@@ -24,6 +24,8 @@ public final class ArmorImpactContext implements AutoCloseable {
     private final BallisticPropertiesComponent shell;
     private final double speed;
     private final double cosine;
+    private final double projectileMass;
+    private final double effectiveBlockToughness;
     private boolean closed;
 
     private ArmorImpactContext(AbstractCannonProjectile projectile, BlockState state, BlockHitResult hit) {
@@ -33,13 +35,17 @@ public final class ArmorImpactContext implements AutoCloseable {
         this.pos = hit.getBlockPos().immutable();
         this.state = state;
         this.armor = ArmorData.get(state.getBlock());
+        this.projectileMass = projectile.getProjectileMass();
+        this.effectiveBlockToughness = armor == null ? 0
+                : ArmorDamageState.effectiveToughness(level, pos, state, armor.toughness());
         this.shell = ((CannonProjectileAccessor) projectile).advancedarmor$invokeBallisticProperties();
         if (armor != null) {
             Vec3 movement = projectile.getDeltaMovement();
             Vec3 velocity = movement.add(((CannonProjectileAccessor) projectile)
                     .advancedarmor$invokeForces(projectile.position(), movement));
             this.speed = velocity.length();
-            this.cosine = Math.max(0, -velocity.normalize().dot(CBCUtils.getSurfaceNormalVector(level, hit)));
+            this.cosine = Math.max(0, Math.min(1,
+                    -velocity.normalize().dot(CBCUtils.getSurfaceNormalVector(level, hit).normalize())));
             this.profile = ArmorPhysics.trace(level, hit, velocity);
         } else {
             this.speed = 0;
@@ -68,7 +74,8 @@ public final class ArmorImpactContext implements AutoCloseable {
 
     public static double toughness(Level level, BlockState state, BlockPos pos, double fallback) {
         ArmorImpactContext context = matching(level, state, pos);
-        return context == null ? fallback : context.dynamicToughness();
+        return context == null ? ArmorDamageState.effectiveToughness(level, pos, state, fallback)
+                : context.dynamicToughness();
     }
 
     public static double hardness(Level level, BlockState state, BlockPos pos, double fallback) {
@@ -84,15 +91,23 @@ public final class ArmorImpactContext implements AutoCloseable {
         return profile.blocks() == 0 ? Double.POSITIVE_INFINITY : profile.effectiveHardness();
     }
 
-    /** Addon adapters must use this value when charging only the struck block. */
+    /** Original material value; use effectiveBlockToughness for damage-aware mass debit. */
     public double baseToughness() { return armor.toughness(); }
+
+    /** Full struck-block toughness, not the DDA's partial segment contribution. */
+    public double effectiveBlockToughness() { return effectiveBlockToughness; }
+
+    public BlockDamageSavedData.ImpactDamage impactDamage() {
+        return new BlockDamageSavedData.ImpactDamage(projectileMass, speed, speed * cosine,
+                shell.penetration(), armor.hardness(), effectiveBlockToughness, cosine);
+    }
 
     public double hardnessMultiplier() {
         return 1 + Math.max(0, dynamicHardness() - shell.penetration());
     }
 
     public double massCost() {
-        return ArmorImpactPhysics.massCost(baseToughness(),
+        return ArmorImpactPhysics.massCost(effectiveBlockToughness,
                 dynamicHardness() - shell.penetration(), speed, cosine);
     }
 

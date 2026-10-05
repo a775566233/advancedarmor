@@ -42,11 +42,11 @@ public final class Advancedarmor {
     private static final Map<String, RegistryObject<Block>> ARMOR = new LinkedHashMap<>();
     public static RegistryObject<Block> block(String name) { return ARMOR.get(name); }
 
-    private static final TagKey<Item> WROUGHT_IRON_TAG =
-            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "wrought_iron"));
-
-    private static final TagKey<Item> NICKEL_STEEL_TAG =
-            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "nickel_steel"));
+//    private static final TagKey<Item> WROUGHT_IRON_TAG =
+//            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "wrought_iron"));
+//
+//    private static final TagKey<Item> NICKEL_STEEL_TAG =
+//            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "nickel_steel"));
 
 
     static {

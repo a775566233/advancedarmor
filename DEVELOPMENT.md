@@ -20,7 +20,10 @@ Advanced Armor 是 Minecraft Java 1.20.1 Forge 模组，依赖 Create Big Cannon
 |---|---|---|
 | `Advancedarmor` | 模组主类；注册十种装甲方块、材料物品、检测工具和创造模式物品栏；注册数据包监听器和服务器配置 | 构造函数、`register`、`addReloadListener` |
 | `ArmorData` | 读取 `armor_properties` 数据包，维护 `Block -> Values` 的线程安全快照 | `apply`、`get`、`snapshot`、`replace` |
-| `ArmorNetwork` | 将服务器数据包解析结果同步到客户端 | `register`、`sync`、`Sync.encode/decode/handle` |
+| `ArmorNetwork` | 同步材料属性、损坏等级上限和区块内逐坐标损坏状态 | `register`、`sync`、`sendDamage`、`DamageSync` |
+| `BlockDamageSavedData` | 按维度持久保存逐坐标损坏；计算概率、叠层、破坏和恢复 | `get`、`applyImpact`、`tick`、`save/load` |
+| `ArmorDamageState` | 服务端和客户端共用的损坏读取接口；客户端使用服务器同步倍率 | `get`、`effectiveToughness`、`updateClient` |
+| `RepairEvents` | 每 20 游戏刻推进损坏恢复和裂痕刷新 | `onLevelTick` |
 | `ArmorPhysics` | 沿指定方向进行方块体素追踪，计算连续装甲的总韧性、当前方块韧性、路径厚度和方块数 | `trace`、`worldContact` |
 | `ArmorImpactPhysics` | 集中实现 CBC 穿甲所需的动量预算、单层质量扣除和跳弹概率公式 | `penetrationBudget`、`massCost`、`bounceChance` |
 | `ArmorImpactContext` | 保存一次炮弹命中的“破坏前快照”，通过 `ThreadLocal` 让 CBC 或附属炮弹读取同一方向的动态属性 | `open`、`current`、`toughness`、`hardness`、`massCost`、`close` |
@@ -170,7 +173,7 @@ angle = acos(cosine)
 6. 累加：
 
 ```text
-totalToughness += block.toughness * segmentLength
+totalToughness += block.effectiveToughness * segmentLength
 totalThickness += segmentLength
 blockCount += 1
 ```
@@ -188,7 +191,7 @@ blockCount += 1
 - 数据包装甲：返回自定义 Provider；
 - 普通方块：返回 CBC 原 Provider。
 
-自定义 Provider 的 `toughness` 会调用 `ArmorImpactContext.toughness`。只有世界、方块位置和 `BlockState` 都与当前快照匹配时，才返回动态总韧性；脱离命中上下文时返回单块基础韧性。这保证了工具提示、其他查询和实际炮弹命中互不污染。
+自定义 Provider 的 `toughness` 会调用 `ArmorImpactContext.toughness`。只有世界、方块位置和 `BlockState` 都与当前快照匹配时，才返回动态总韧性；脱离命中上下文时返回该坐标当前的单块有效韧性，包含损坏倍率。
 
 ### 4.6 穿透门槛和硬度差
 
@@ -215,7 +218,7 @@ massCost = blockToughness
          / normalSpeed
 ```
 
-`CannonProjectileMixin.advancedarmor$singleBlockMassCost` 修改 CBC 穿透分支第一次 `setProjectileMass` 的参数。它使用当前方块的基础韧性，而不是整段动态总韧性，也不使用边缘命中点在当前体素内的短路径长度。这样每击穿一层都会逐层扣除质量，后续层使用剩余质量重新判断。
+`CannonProjectileMixin.advancedarmor$singleBlockMassCost` 修改 CBC 穿透分支第一次 `setProjectileMass` 的参数。它使用当前完整方块包含损坏倍率的有效韧性，不使用整段动态总韧性或当前体素内的短路径贡献。这样每击穿一层都会逐层扣除质量，后续层使用剩余质量重新判断。
 
 公式中的 `hardness` 使用本次命中的动态硬度；每次击穿后，下次命中重新追踪剩余连续装甲并建立新的硬度快照。
 
@@ -250,6 +253,8 @@ ArmorImpactContext context = ArmorImpactContext.current(projectile);
 context.dynamicToughness(); // 连续路径总韧性
 context.dynamicHardness();  // 连续路径模型计算的等效硬度
 context.baseToughness();    // 当前单块基础韧性
+context.effectiveBlockToughness(); // 当前完整方块含损坏倍率的有效韧性
+context.impactDamage();     // 本次命中前保存的损坏模型输入
 context.massCost();         // CBC 风格的当前单层质量损耗
 context.hardnessMultiplier();
 context.bounceChance(baseChance);
@@ -265,6 +270,46 @@ try (ArmorImpactContext ignored = ArmorImpactContext.open(projectile, state, hit
 
 附属自定义的穿透公式、质量扣除、跳弹概率仍由附属负责；本模组只保证方向性属性快照和 CBC 默认大口径炮弹的接入。
 
+### 4.10 临时命中损坏
+
+四个接入文件分别负责：
+
+1. `ArmorImpactContext` 在 CBC 扣除质量或破坏方块之前，保存炮弹质量、速度、法向速度、穿透系数，以及命中方块的基础硬度和当前完整单块有效韧性。
+2. `ProjectileCollisionMixin` 调用实际炮弹的穿甲方法后，用快照调用 `applyImpact`。只在服务端、CBC 允许 `ALL_DAMAGE` 且命中方块仍为原状态时提交；已经被 CBC 破坏的方块不会重新创建损坏记录。
+3. `ArmorInspection` 返回方向性总韧性，同时返回命中坐标的损坏等级、等级上限、单块有效韧性和损失百分比。
+4. `ArmorNetwork` 登录时同步材料数据和等级上限，观察区块时发送损坏快照，命中、恢复、移除时发送增量。包包含维度、区块、坐标、方块状态、等级、上限、韧性倍率和裂痕 ID。
+
+`applyImpact` 的 `ImpactDamage` 是一条命中参数记录，不是伤害等级，也不是伤害数值：
+
+```java
+record ImpactDamage(double projectileMass, double speed, double normalSpeed,
+                    double penetration, double hardness, double toughness, double cosine)
+```
+
+`projectileMass` 是扣除前质量；`speed` 是总速度；`normalSpeed = speed * cosine`；`penetration` 是炮弹穿透系数；`hardness` 是命中材料的基础硬度；`toughness` 是该坐标完整方块的有效韧性；`cosine` 是入射角余弦。概率使用法向动能，速度单位沿用 CBC 的每游戏刻位移单位。
+
+模型为：
+
+```text
+E = 0.5 * projectileMass * normalSpeed^2
+r = min(100, penetration / max(hardness, 1e-6))
+q = clamp(Tref / max(toughness, Tref * minFactor), 0.25, 4)
+I = min(1e12, (E / Eref)^a * r^b * q * (1 + bonus * max(0, r - 1)))
+p = pmax * (1 - exp(-rate * I))
+pExtra = extraMax * I / (1 + I)
+T_effective = T_base * (1 - L / Lmax)^gamma
+```
+
+以概率 `p` 添加第一层；成功后，以 `pExtra` 连续尝试额外层，最多为 `armorDamageMaxLevelsPerHit`。质量、法向速度或穿透系数为零时不添加损坏。`gamma > 1` 表示前期韧性下降较快、后期下降较慢。
+
+记录按维度和方块坐标保存到 `advancedarmor_block_damage.dat`；同种材料的其他坐标不受影响。路径总韧性对每个体素使用其自己的 `T_effective * segmentLength`。满层默认破坏方块；关闭满层破坏时将等级限制在 `Lmax - 1`。
+
+每隔 `armorDamageDecayIntervalTicks` 恢复一层；成功造成损坏的命中重新计时。卸载区块不强制加载，仍按服务器游戏时间恢复；关闭服务器期间不计时。`ArmorDamageRemovalMixin` 在方块状态实际替换时立即清除记录，因此同一游戏刻内挖掉再放回同材料也会重置。
+
+客户端按等级显示原版挖掘裂痕，阶段为 `ceil(10 * L / Lmax) - 1`，限制在 0～9；零层清除。裂痕 ID 使用负数，避免与玩家挖掘 ID 冲突。每 100 游戏刻刷新，避免原版渲染器自动移除长时间无更新的裂痕。区块卸载时清除客户端缓存；服务端保持专用服务器兼容。
+
+网络协议已从 `1` 升为 `2`，联机双方需使用此版本。
+
 ## 5. 检测工具
 
 `ArmorInspection.inspect` 是无副作用查询接口：
@@ -273,6 +318,8 @@ try (ArmorImpactContext ignored = ArmorImpactContext.open(projectile, state, hit
 2. 用 CBC 世界法线计算模拟入射角。
 3. 如果命中方块属于 `ArmorData`，调用 `ArmorPhysics.trace`，返回动态总韧性、动态等效硬度、连续装甲数量和角度。
 4. 如果不是本模组装甲，返回 CBC 普通方块 Provider 的单块属性，数量固定为 1。
+
+装甲还显示当前方块损坏 `L/Lmax`、当前单块有效韧性和韧性损失百分比；未损坏方块显示 `0/Lmax`。这些字段是命中坐标的局部状态，方向性总韧性仍通过整条路径计算。
 
 `ArmorInspectionOverlay` 每帧读取实际准星命中结果和相机视线方向，在准星右下调用该接口。检测工具不会破坏方块，不包含某种炮弹的质量预算或硬度差倍率，因此它显示的是方向性装甲本体参数，不是某个炮弹的最终穿透结果。
 
@@ -343,6 +390,26 @@ VS 场景会将爆炸原点、射线方向和方块中心分别转换到对应�
 
 增加或改变公式时，应同时更新配置注释、GameTest 和本文档中的单位说明。
 
+临时损坏配置位于同一文件，变量名保持如下：
+
+| 配置变量 | 默认值 | 最小值 | 最大值 | 描述 |
+|---|---:|---:|---:|---|
+| `armorDamageEnabled` | true | false | true | 启用炮弹命中损坏 |
+| `armorDamageMaxLevel` | 8 | 1 | 32 | 损坏等级上限 |
+| `armorDamageToughnessExponent` | 1.2 | 0.25 | 4 | 韧性倍率指数 gamma |
+| `armorDamageReferenceImpact` | 2048 | 1 | 10000000 | 法向动能参考值 Eref，CBC 内部单位 |
+| `armorDamageImpactExponent` | 0.75 | 0.1 | 3 | 法向动能指数 a |
+| `armorDamagePenetrationExponent` | 1 | 0.1 | 3 | 穿透/硬度比指数 b |
+| `armorDamageReferenceToughness` | 54 | 0.1 | 10000 | 参考韧性 Tref |
+| `armorDamageMinToughnessFactor` | 0.25 | 0.01 | 1 | 韧性分母下限相对 Tref 的比例；q 仍限制在 0.25～4 |
+| `armorDamageHardnessBonusScale` | 0.5 | 0 | 4 | 穿透超过材料硬度时的附加系数 bonus |
+| `armorDamageMaxProbability` | 0.85 | 0 | 1 | 至少增加一层的概率上限 pmax |
+| `armorDamageProbabilityRate` | 0.65 | 0.01 | 5 | 概率曲线增长率 rate |
+| `armorDamageExtraLevelProbability` | 0.55 | 0 | 1 | 连续增加额外层的概率上限 extraMax |
+| `armorDamageMaxLevelsPerHit` | 3 | 1 | 8 | 每次命中最多新增层数 |
+| `armorDamageDecayIntervalTicks` | 6000 | 20 | 2592000 | 恢复一层的游戏刻间隔；默认 5 分钟，20 TPS |
+| `armorDamageDestroyAtMaxLevel` | true | false | true | 满层时破坏；关闭则封顶在上限减一 |
+
 ## 8. 资源和数据包
 
 - `assets/advancedarmor/blockstates/`：方块状态到模型的映射。
@@ -385,7 +452,7 @@ VS 场景会将爆炸原点、射线方向和方块中心分别转换到对应�
 ## 10. 二次开发原则
 
 1. **不要在多个位置重复乘入射角系数。** `ArmorPhysics.trace` 已通过 DDA 路径长度计算斜射厚度。
-2. **不要把动态总韧性直接用于单层质量扣除。** 动态总韧性用于穿透门槛，CBC 风格质量扣除使用当前方块基础韧性。
+2. **不要把动态总韧性直接用于单层质量扣除。** 动态总韧性用于穿透门槛，CBC 风格质量扣除使用当前完整方块的有效韧性，包含其局部损坏倍率。
 3. **不要在方块破坏后再扫描装甲。** 扫描必须在 `ArmorImpactContext.open` 时完成，保证一次命中使用稳定快照。
 4. **不要让爆炸逻辑独立遍历方块并重新制造破坏列表。** 高爆模块只能过滤 CBC 已有列表，避免总伤害增加。
 5. **保持普通方块兼容。** `ArmorData.get` 返回空时，应回退到 CBC 或 Minecraft 原逻辑。
