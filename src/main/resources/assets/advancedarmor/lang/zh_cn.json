@@ -15,6 +15,8 @@
   "item.advancedarmor.armor_inspection_tool": "装甲动态检测工具",
   "item.advancedarmor.nickel_carbon_steel": "镍碳钢",
   "item.advancedarmor.nickel_steel": "镍钢",
+  "item.advancedarmor.camouflage_mold": "伪装磨具",
+  "item.advancedarmor.camouflage_mold_named": "%s（伪装：%s）",
   "inspection.advancedarmor.toughness": "实际韧性：",
   "inspection.advancedarmor.hardness": "硬度：",
   "inspection.advancedarmor.blocks": "方块数量：",

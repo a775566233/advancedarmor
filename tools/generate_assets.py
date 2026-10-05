@@ -36,7 +36,10 @@ for name, chinese, english, toughness, hardness, blast, base, seed in MATERIALS:
     block_id = f"advancedarmor:{name}"
     put(ROOT / "data/advancedarmor/armor_properties" / f"{name}.json", {
         "block": block_id, "hardness": hardness, "toughness": toughness, "explosion_resistance": blast})
-    put(ROOT / "assets/advancedarmor/blockstates" / f"{name}.json", {"variants": {"": {"model": f"advancedarmor:block/{name}"}}})
+    put(ROOT / "assets/advancedarmor/blockstates" / f"{name}.json", {"variants": {
+        "camouflaged=false": {"model": f"advancedarmor:block/{name}"},
+        "camouflaged=true": {"model": "minecraft:block/air"}
+    }})
     put(ROOT / "assets/advancedarmor/models/block" / f"{name}.json", {
         "parent": "minecraft:block/cube_all", "textures": {"all": f"advancedarmor:block/{name}"}})
     put(ROOT / "assets/advancedarmor/models/item" / f"{name}.json", {"parent": f"advancedarmor:block/{name}"})

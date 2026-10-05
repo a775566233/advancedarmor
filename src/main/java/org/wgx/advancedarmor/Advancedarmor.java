@@ -1,9 +1,7 @@
 package org.wgx.advancedarmor;
 
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.ItemTags;
-import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -28,6 +26,10 @@ public final class Advancedarmor {
     public static final String MODID = "advancedarmor";
     private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
     private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
+    private static final DeferredRegister<net.minecraft.world.level.block.entity.BlockEntityType<?>> BLOCK_ENTITIES =
+            DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MODID);
+    private static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZERS =
+            DeferredRegister.create(ForgeRegistries.RECIPE_SERIALIZERS, MODID);
     public static final RegistryObject<Item> WROUGHT_IRON_INGOT = ITEMS.register("wrought_iron_ingot",
             () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> WROUGHT_IRON_PLATE = ITEMS.register("wrought_iron_plate",
@@ -38,9 +40,14 @@ public final class Advancedarmor {
 //            () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> ARMOR_INSPECTION_TOOL = ITEMS.register("armor_inspection_tool",
             () -> new Item(new Item.Properties().stacksTo(1)));
+    public static final RegistryObject<Item> CAMOUFLAGE_MOLD = ITEMS.register("camouflage_mold",
+            () -> new CamouflageMoldItem(new Item.Properties().stacksTo(1).durability(64)));
     private static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     private static final Map<String, RegistryObject<Block>> ARMOR = new LinkedHashMap<>();
     public static RegistryObject<Block> block(String name) { return ARMOR.get(name); }
+
+    public static final RegistryObject<RecipeSerializer<CamouflageMoldRecipe>> CAMOUFLAGE_MOLD_RECIPE =
+            RECIPE_SERIALIZERS.register("camouflage_mold", CamouflageMoldRecipe.Serializer::new);
 
 //    private static final TagKey<Item> WROUGHT_IRON_TAG =
 //            ItemTags.create(new ResourceLocation(Advancedarmor.MODID, "wrought_iron"));
@@ -62,8 +69,19 @@ public final class Advancedarmor {
         register("british_plastic_protection_armor", 1f, 18);
     }
 
+    /**
+     * Create the block entity type after every armor block has been added to
+     * ARMOR. Creating it earlier produced an empty valid-block list, which
+     * prevented block entities from being restored reliably from chunks.
+     */
+    public static final RegistryObject<net.minecraft.world.level.block.entity.BlockEntityType<CamouflageArmorBlockEntity>> CAMOUFLAGE_BLOCK_ENTITY =
+            BLOCK_ENTITIES.register("camouflage_armor", () -> net.minecraft.world.level.block.entity.BlockEntityType.Builder
+                    .of(CamouflageArmorBlockEntity::new,
+                            ARMOR.values().stream().map(RegistryObject::get).toArray(Block[]::new))
+                    .build(null));
+
     private static void register(String name, float hardness, float resistance) {
-        RegistryObject<Block> block = BLOCKS.register(name, () -> new Block(BlockBehaviour.Properties.of()
+        RegistryObject<Block> block = BLOCKS.register(name, () -> new ArmorBlock(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.METAL).strength(hardness, resistance).requiresCorrectToolForDrops()));
         ARMOR.put(name, block);
         ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
@@ -74,6 +92,8 @@ public final class Advancedarmor {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         BLOCKS.register(bus);
         ITEMS.register(bus);
+        BLOCK_ENTITIES.register(bus);
+        RECIPE_SERIALIZERS.register(bus);
         TABS.register("armor", () -> CreativeModeTab.builder()
                 .withTabsBefore(CreativeModeTabs.COMBAT)
                 .title(net.minecraft.network.chat.Component.translatable("itemGroup.advancedarmor.armor"))
@@ -83,6 +103,7 @@ public final class Advancedarmor {
                     output.accept(WROUGHT_IRON_INGOT.get());
                     output.accept(WROUGHT_IRON_PLATE.get());
                     output.accept(ARMOR_INSPECTION_TOOL.get());
+                    output.accept(CAMOUFLAGE_MOLD.get());
                     //output.accept(NICKEL_CARBON_STEEL.get());
                     output.accept(NICKEL_STEEL.get());
                 })

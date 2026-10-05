@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/ducol_steel_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/ducol_steel_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/kc_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/kc_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

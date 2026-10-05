@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/nickel_steel_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/nickel_steel_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

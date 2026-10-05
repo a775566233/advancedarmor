@@ -84,6 +84,10 @@ public final class Config {
     public static final ForgeConfigSpec.BooleanValue ARMOR_DAMAGE_DESTROY_AT_MAX_LEVEL =
             BUILDER.comment("Destroy at maximum damage. If false, levels are capped at maxLevel - 1 to retain positive toughness.")
                     .define("armorDamageDestroyAtMaxLevel", true);
+
+    public static final ForgeConfigSpec.IntValue CAMOUFLAGE_MOLD_DURABILITY =
+            BUILDER.comment("Durability of a camouflage mold. One durability point is consumed each time armor is camouflaged.")
+                    .defineInRange("camouflageMoldDurability", 64, 1, 10000);
     public static final ForgeConfigSpec SPEC = BUILDER.build();
 
     private Config() {}

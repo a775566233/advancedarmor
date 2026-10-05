@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/wrought_iron_blocks"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/wrought_iron_blocks"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

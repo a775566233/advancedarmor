@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/iron_steel_composite_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/iron_steel_composite_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/homogeneous_carbon_steel_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/homogeneous_carbon_steel_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

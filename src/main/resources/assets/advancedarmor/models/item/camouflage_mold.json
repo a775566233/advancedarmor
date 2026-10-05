@@ -1,0 +1,14 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "advancedarmor:item/disguise_template"
+  },
+  "overrides": [
+    {
+      "predicate": {
+        "custom_model_data": 1
+      },
+      "model": "advancedarmor:item/disguise_template_burned"
+    }
+  ]
+}

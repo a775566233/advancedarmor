@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/british_plastic_protection_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/british_plastic_protection_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }

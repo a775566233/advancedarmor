@@ -1,7 +1,6 @@
 {
   "variants": {
-    "": {
-      "model": "advancedarmor:block/sts_armor"
-    }
+    "camouflaged=false": {"model": "advancedarmor:block/sts_armor"},
+    "camouflaged=true": {"model": "minecraft:block/air"}
   }
 }
