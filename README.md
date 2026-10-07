@@ -2,7 +2,7 @@
 
 **中文** | [English](README.en.md)
 
-适用于 Minecraft Java 1.20.1 Forge 的舰船装甲模组。提供十种装甲方块、沿炮弹方向计算的动态韧性与非线性硬度，以及 CBC 高爆弹的有限能量传播。静止世界和 Valkyrien Skies 2 舰船使用同一套装甲规则。
+适用于 Minecraft Java 1.20.1 Forge 的舰船装甲模组。提供十种装甲方块、沿炮弹方向计算的动态韧性与非线性硬度、可恢复的逐块命中损坏、装甲外观伪装，以及 CBC 高爆弹的有限能量传播。静止世界和 Valkyrien Skies 2 舰船使用同一套装甲计算规则。
 
 源码架构、CBC 接入点与扩展接口见 [开发文档（中文）](DEVELOPMENT.md)。
 
@@ -13,6 +13,8 @@
 - [默认材料](#默认材料)
 - [合成与材料兼容](#合成与材料兼容)
 - [装甲与炮弹计算](#装甲与炮弹计算)
+- [命中损坏与恢复](#命中损坏与恢复)
+- [装甲伪装](#装甲伪装)
 - [高爆模型](#高爆模型)
 - [服务器配置](#服务器配置)
 - [数据包扩展](#数据包扩展)
@@ -47,6 +49,7 @@ JEI 可用于查询合成表，但不是玩家安装本模组的必要依赖。�
 2. 获取装甲动态检测工具，物品 ID 为 `advancedarmor:armor_inspection_tool`。
 3. 主手或副手持有工具，将准星对准装甲，观察不同瞄准方向下的防护值。
 4. 使用 CBC 炮弹测试。每次命中都会按当时剩余的装甲重新计算。
+5. 观察被命中方块的损坏等级和韧性损失；需要伪装时，用空伪装磨具与目标方块合成，再右键装甲。
 
 开启命令权限时，可直接获取工具：
 
@@ -62,6 +65,11 @@ JEI 可用于查询合成表，但不是玩家安装本模组的必要依赖。�
 | 硬度 | 同一路径模型计算的动态等效硬度 |
 | 方块数量 | 射线经过的连续装甲体素数量 |
 | 模拟入射角度 | 相对表面法线的角度；正面为 0°，擦射接近 90° |
+| 损坏等级 | 准星所指装甲的当前损坏等级 / 等级上限 |
+| 单块有效韧性 | 该坐标完整方块在损坏后的韧性，不含路径长度倍率 |
+| 韧性损失 | 该方块相对基础韧性的损失百分比 |
+
+后三项仅对数据包定义了装甲属性的方块显示；方块名称仍显示真实装甲名称。
 
 检测不会破坏方块，也不包含某种炮弹的穿透系数、质量预算或速度加成。视线方向与实际炮弹方向不同时，显示值与炮弹命中值可能不同。达到追踪距离上限时，韧性显示“达到检测上限”；普通非装甲方块显示 CBC 单块基础属性，数量为 1。
 
@@ -131,10 +139,12 @@ KC、KNC、STS 使用 CBC 熔融钢 `createbigcannons:molten_steel`：
 命中装甲时，沿炮弹方向逐格扫描连续装甲：
 
 ```text
-T = sum(toughness[i] * pathLength[i])
+T = sum(baseToughness[i] * damageMultiplier[i] * pathLength[i])
 ```
 
 `pathLength[i]` 是射线在该方块内经过的距离。斜射厚度已通过路径长度计入；完整平板的斜射路径等价于正面厚度乘 `sec(angle)`，调用方不能再乘一次。空气和普通非装甲方块会中断追踪。
+
+`damageMultiplier[i]` 是该坐标当前的损坏倍率，未损坏时为 1；相邻同种材料的方块不会共享损坏。
 
 ### 非线性动态硬度
 
@@ -160,13 +170,45 @@ budget = mass * speed * cos(angle) * velocityBonus
 massCost = struckBlockToughness * hardnessMultiplier / (speed * cos(angle))
 ```
 
-CBC 根据预算、门槛及自身碰撞条件处理穿透。击穿后按当前方块的**完整基础韧性**扣除质量，再用剩余质量和剩余装甲判断下一次命中。速度加成参与穿透预算，但不用于减小这里的质量扣除。擦射跳弹概率也读取动态硬度；CBC 保留碰撞结果、引信、破坏和特效处理。
+CBC 根据预算、门槛及自身碰撞条件处理穿透。击穿后按当前方块的**完整单块有效韧性（包含损坏倍率）**扣除质量，再用剩余质量和剩余装甲判断下一次命中。速度加成参与穿透预算，但不用于减小这里的质量扣除。擦射跳弹概率也读取动态硬度；CBC 保留碰撞结果、引信、破坏和特效处理。
 
 动态硬度提高穿透要求和质量损耗，**不会直接降低炮弹的穿透系数字段**。当硬度低于或等于炮弹穿透系数时，这两个公式中的额外硬度倍率为 1。采掘硬度始终使用材料基础硬度。
 
 ### VS 舰船
 
 舰船方块沿船体局部坐标追踪，运动方向和表面法线在船体与世界坐标之间转换。旋转船体按自身方块排列计算装甲路径，而非世界轴方向。
+
+## 命中损坏与恢复
+
+通过 CBC 公共碰撞流程命中装甲时，仍存活的命中方块有概率增加损坏等级，并显示原版挖掘裂痕。概率与命中前的炮弹质量、法向速度、穿透系数，以及该方块的基础硬度和当前单块有效韧性有关。只有被命中的坐标受影响；新损坏参与后续命中的计算。
+
+```text
+effectiveToughness = baseToughness * (1 - damageLevel / maxLevel)^exponent
+```
+
+默认最多 8 级，每次命中最多新增 3 级，满级韧性归零并破坏方块。关闭满级破坏后，等级封顶在上限减一。损坏降低韧性，硬度和抗爆值保持材料原值；高爆吸收与这套命中叠层分别计算。详细概率模型见 [开发文档](DEVELOPMENT.md#410-临时命中损坏)。
+
+默认每 6000 游戏刻恢复一级，20 TPS 时约 5 分钟；成功造成损坏的命中重新计时。服务器每 20 刻处理恢复，关服或游戏暂停期间不计时。区块卸载不会强制加载该区块，损坏记录仍按服务器游戏时间恢复；存档重启会保留尚未恢复的记录。
+
+挖掉重放会重置损坏。**当前损坏绑定完整方块状态，属性变化也会清除记录：首次应用伪装会切换 `camouflaged` 状态，因此会清除已有损坏。** 已伪装装甲仅更换伪装材质时不会因这一状态开关再次清除。只有服务端 CBC 允许 `ALL_DAMAGE` 时才提交命中损坏。
+
+## 装甲伪装
+
+1. 从创造模式物品栏获取空伪装磨具，或执行下方命令。当前没有空磨具的内置生存获取配方，可由整合包补充。
+2. 将 **1 个空磨具 + 1 个目标方块物品** 无序合成，得到已填充磨具。
+3. 用已填充磨具右键本模组装甲，应用外观；同一个磨具可以重复使用，默认耐久为 64。
+
+```mcfunction
+/give @s advancedarmor:camouflage_mold
+```
+
+空磨具使用 `disguise_template.png`（中间绿色）；已填充磨具使用 `disguise_template_burned.png`（中间红色），名称包含目标方块名。空磨具只参与合成，不能直接右键伪装；已填充磨具不能再次参与该配方或更换记录的目标。每次应用消耗 1 点耐久，包括覆盖相同材质；创造模式通常不扣耐久。
+
+配方复制目标方块的**默认状态**。不支持装甲本身、空气、默认状态含流体或具有方块实体的方块；也不复制物品中的方向、方块实体 NBT 或功能。伪装仅替换外观，装甲的碰撞、采掘、硬度、韧性和抗爆仍按真实装甲计算，模仿发光方块不会新增实际光源。
+
+伪装随方块实体保存并同步，重进世界后保留；挖掉重放恢复原始外观。当前没有游戏内清除伪装的专用操作，可直接用其他已填充磨具覆盖。只有本模组十种装甲支持磨具，数据包给普通方块添加装甲属性不会自动添加伪装能力。
+
+渲染接入 Forge 外观查询和目标模型的 `ModelData`，为 Create 连接纹理提供伪装邻居信息，并使用世界方块的光照路径。边框消除仍取决于目标模型的连接规则；其他连接纹理模组、光影和第三方渲染器需分别验证。当前自动测试覆盖外观查询、邻居状态与面剔除，不验证实际客户端 UV 和最终画面。
 
 ## 高爆模型
 
@@ -198,6 +240,34 @@ absorption = explosion_resistance * pathLength * blastAbsorptionScale / blastRay
 | `blastAbsorptionScale` | 64.0 | 0.01-10000 | 装甲吸收系数 |
 | `blastAirLoss` | 2.0 | 0-1000 | 每格传播的空气损失系数 |
 | `blastMaxDistance` | 64 | 1-128 | 高爆射线最远传播距离 |
+
+### 命中损坏配置
+
+| 配置项 | 默认值 | 最小值 | 最大值 | 作用 |
+|---|---:|---:|---:|---|
+| `armorDamageEnabled` | true | false | true | 启用炮弹命中损坏 |
+| `armorDamageMaxLevel` | 8 | 1 | 32 | 损坏等级上限 |
+| `armorDamageToughnessExponent` | 1.2 | 0.25 | 4 | 韧性倍率指数；大于 1 时前期损失较快 |
+| `armorDamageReferenceImpact` | 2048 | 1 | 10000000 | 法向动能参考值，CBC 内部单位；越大越难损坏 |
+| `armorDamageImpactExponent` | 0.75 | 0.1 | 3 | 法向动能相对参考值的指数 |
+| `armorDamagePenetrationExponent` | 1 | 0.1 | 3 | 穿透 / 基础硬度比的指数 |
+| `armorDamageReferenceToughness` | 54 | 0.1 | 10000 | 损坏概率模型的参考韧性 |
+| `armorDamageMinToughnessFactor` | 0.25 | 0.01 | 1 | 韧性分母下限相对参考韧性的比例；最终倍率限制在 0.25～4 |
+| `armorDamageHardnessBonusScale` | 0.5 | 0 | 4 | 穿透超过基础硬度时的附加损坏系数 |
+| `armorDamageMaxProbability` | 0.85 | 0 | 1 | 一次命中至少增加一级的概率上限 |
+| `armorDamageProbabilityRate` | 0.65 | 0.01 | 5 | 损坏概率曲线增长率 |
+| `armorDamageExtraLevelProbability` | 0.55 | 0 | 1 | 成功后连续增加额外等级的概率上限 |
+| `armorDamageMaxLevelsPerHit` | 3 | 1 | 8 | 单次命中最多新增等级 |
+| `armorDamageDecayIntervalTicks` | 6000 | 20 | 2592000 | 自动恢复一级的间隔，单位为游戏刻 |
+| `armorDamageDestroyAtMaxLevel` | true | false | true | 满级破坏；关闭时封顶在上限减一 |
+
+### 伪装磨具配置
+
+| 配置项 | 默认值 | 最小值 | 最大值 | 作用 |
+|---|---:|---:|---:|---|
+| `camouflageMoldDurability` | 64 | 1 | 10000 | 已填充磨具最大耐久，每次应用消耗 1 点 |
+
+以上 25 项均直接写在 TOML 顶层，不需要额外分组。若 `armorDamageMaxLevel = 1` 且关闭满级破坏，可保留的损坏等级为 0。
 
 装甲追踪达到上限时，总韧性按无限处理，避免把未扫描完的装甲误判为薄装甲。提高追踪距离和射线数量会增加计算量。
 
@@ -242,7 +312,7 @@ Minecraft 1.20.1 的 `pack.mcmeta`：
 |---|---|
 | `block` | 已注册的方块 ID |
 | `hardness` | 材料基础硬度，用于采掘和动态硬度模型 |
-| `toughness` | 单块基础韧性，用于路径累计和击穿后的质量扣除 |
+| `toughness` | 单块基础韧性；乘该坐标损坏倍率后的有效值参与路径累计和击穿后的质量扣除 |
 | `explosion_resistance` | 方块抗爆性和高爆射线吸收 |
 
 三个数值必须是非负有限数。路径为 `data/<命名空间>/armor_properties/<任意文件名>.json`；文件名不必与方块 ID 相同。服务器在登录和数据包重载时将属性同步到客户端。
@@ -268,12 +338,14 @@ Linux / macOS 使用 `./gradlew`。依赖全部缓存后可加 `--offline`。发
 - 装甲属性：[src/main/resources/data/advancedarmor/armor_properties](src/main/resources/data/advancedarmor/armor_properties)
 - 配方：[src/main/resources/data/advancedarmor/recipes](src/main/resources/data/advancedarmor/recipes)
 - 配置定义：[Config.java](src/main/java/org/wgx/advancedarmor/Config.java)
-- 集成测试：[ArmorGameTests.java](src/main/java/org/wgx/advancedarmor/ArmorGameTests.java)
+- 装甲与 CBC 测试：[ArmorGameTests.java](src/main/java/org/wgx/advancedarmor/ArmorGameTests.java)
+- 损坏测试：[ArmorDamageGameTests.java](src/main/java/org/wgx/advancedarmor/ArmorDamageGameTests.java)
+- 伪装测试：[CamouflageGameTests.java](src/main/java/org/wgx/advancedarmor/CamouflageGameTests.java)
 - 资源生成：[tools/generate_assets.py](tools/generate_assets.py)
 
-资源生成脚本会重写部分贴图、模型、语言、属性、掉落表和配方。保留手动调整时，需同步修改生成脚本；目前脚本中的 KC 硬度仍为 `1.95`，运行它会覆盖当前 JSON 中的 `2.00`。
+资源生成脚本会重写部分贴图、模型、语言、属性、掉落表和配方。保留手动调整时，需同步修改生成脚本；目前脚本中的 KC 硬度仍为 `1.95`，运行它会覆盖当前 JSON 中的 `2.00`，并丢失脚本尚未包含的损坏与伪装语言条目。
 
-测试源码包含 18 项 GameTest，覆盖连续装甲、斜射、边缘命中、质量扣除、动态硬度、跳弹、爆炸、数据包和检测工具。此前在 CBC 5.8.2 和 `createbigcannons-5.8.3edited.jar` 上均通过 18 项测试；这不代表整个整合包已验证。**当前 KC 基础硬度已改为 2.00，但部分测试仍断言 1.95，重新测试前需同步这些平衡数值预期。**
+截至 2026-10-07，基准开发环境的 `build` 成功，专用服务器 27 项必需 GameTest 全部通过：装甲与 CBC 18 项、临时损坏 7 项、伪装 2 项。`build` 不自动运行 GameTest，需单独执行 `runGameTestServer`。这些测试不覆盖客户端实际光照、连接纹理画面、VS 舰船伪装渲染或光影兼容；手动验证清单见 [开发文档](DEVELOPMENT.md#9-测试和验证)。
 
 ## 兼容性与常见问题
 
@@ -291,9 +363,9 @@ Linux / macOS 使用 `./gradlew`。依赖全部缓存后可加 `--offline`。发
 
 ### CBC 附属炮弹是否自动兼容？
 
-经过 CBC 的 `clipAndDamage` 公共碰撞流程，并通过 `BlockArmorPropertiesHandler.getProperties(state)` 查询匹配命中属性的附属炮弹，可读取动态韧性和动态硬度，即使其穿甲方法不调用 `super`。命中快照在方块破坏前建立；普通查询返回基础属性。
+经过 CBC 的 `clipAndDamage` 公共碰撞流程，并通过 `BlockArmorPropertiesHandler.getProperties(state)` 查询匹配命中属性的附属炮弹，可读取动态韧性和动态硬度，即使其穿甲方法不调用 `super`。命中快照在方块破坏前建立；上下文外的数据包装甲查询返回基础硬度和该坐标当前的单块有效韧性。
 
-CBC 大口径炮弹使用本模组的门槛、质量扣除和跳弹接入。机炮保留 CBC 的累计方块损伤流程，但属性查询可读取动态值。附属自定义的公式仍由附属负责；其质量扣除可通过 `ArmorImpactContext.current(projectile)` 读取 `baseToughness()` 或 `massCost()` 适配。完全绕过公共碰撞或 CBC 属性查询的实现需要单独接入，详见 [开发文档](DEVELOPMENT.md)。
+CBC 大口径炮弹使用本模组的门槛、质量扣除和跳弹接入。机炮保留 CBC 的累计方块损伤流程，但属性查询可读取动态值。附属自定义的公式仍由附属负责；其质量扣除可通过非空的 `ArmorImpactContext.current(projectile)` 读取 `effectiveBlockToughness()` 或 `massCost()` 适配。完全绕过公共碰撞或 CBC 属性查询的实现需要单独接入，详见 [开发文档](DEVELOPMENT.md)。
 
 Mixin 接入基于方法调用位置，不依赖固定局部变量槽位。修改了目标调用或方法签名的 CBC 版本仍需单独验证。反馈问题时请附 Minecraft、Forge、CBC、VS 和本模组版本、`logs/latest.log`，以及装甲排列、炮弹类型、速度和入射方向。
 

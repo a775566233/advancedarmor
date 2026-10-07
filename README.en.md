@@ -2,7 +2,7 @@
 
 [Chinese](README.md) | **English**
 
-A ship armor mod for Minecraft Java 1.20.1 Forge. Adds ten armor blocks, directional toughness, nonlinear dynamic hardness, and finite-energy propagation for CBC high-explosive shells. The same armor rules apply to world blocks and Valkyrien Skies 2 ships.
+A ship armor mod for Minecraft Java 1.20.1 Forge. Adds ten armor blocks, directional toughness, nonlinear dynamic hardness, recoverable damage at individual block coordinates, armor camouflage, and finite-energy propagation for CBC high-explosive shells. The same armor calculations apply to world blocks and Valkyrien Skies 2 ships.
 
 For source architecture, CBC integration points, and extension APIs, see the [development guide (Chinese)](DEVELOPMENT.md).
 
@@ -13,6 +13,8 @@ For source architecture, CBC integration points, and extension APIs, see the [de
 - [Default Materials](#default-materials)
 - [Recipes and Material Compatibility](#recipes-and-material-compatibility)
 - [Armor and Projectile Calculations](#armor-and-projectile-calculations)
+- [Impact Damage and Recovery](#impact-damage-and-recovery)
+- [Armor Camouflage](#armor-camouflage)
 - [High-Explosive Model](#high-explosive-model)
 - [Server Configuration](#server-configuration)
 - [Data Pack Extensions](#data-pack-extensions)
@@ -47,6 +49,7 @@ JEI is useful for viewing recipes but is not required to install this mod. Some 
 2. Obtain the Dynamic Armor Inspection Tool: `advancedarmor:armor_inspection_tool`.
 3. Hold it in either hand and aim at armor to compare protection from different directions.
 4. Test with CBC projectiles. Each impact recalculates the armor remaining at that moment.
+5. Inspect the struck block's damage level and toughness loss. To camouflage armor, craft an empty mold with a target block, then right-click armor with the filled mold.
 
 With command permissions, obtain the tool directly:
 
@@ -62,6 +65,11 @@ The tool also has a shapeless recipe: **1 CBC armor inspection tool + 1 KC armor
 | Hardness | Dynamic effective hardness calculated for the same path |
 | Block count | Number of contiguous armor voxels crossed by the ray |
 | Simulated impact angle | Angle relative to the surface normal; 0 degrees is normal incidence, grazing approaches 90 degrees |
+| Damage level | Current damage level / maximum for the targeted armor coordinate |
+| Single-block effective toughness | The complete block's toughness after damage, without path length scaling |
+| Toughness loss | Percentage lost relative to the block's base toughness |
+
+The final three fields appear only for blocks with data-pack armor properties. The displayed block name remains the real armor's name.
 
 Inspection does not damage blocks or include any particular projectile's penetration rating, mass budget, or velocity bonus. If your view direction differs from the projectile's actual direction, the displayed values may differ from the impact values. At the trace distance limit, toughness displays "Trace limit reached." Ordinary blocks without armor properties show CBC's single-block base properties with a count of 1.
 
@@ -131,10 +139,12 @@ Modpacks can enable the chromium branch by adding this bridge at `data/advanceda
 On impact, the mod traces contiguous armor along the projectile direction:
 
 ```text
-T = sum(toughness[i] * pathLength[i])
+T = sum(baseToughness[i] * damageMultiplier[i] * pathLength[i])
 ```
 
 `pathLength[i]` is the distance traveled inside that block. Oblique thickness is already included in the path: for a complete flat plate, it is equivalent to normal thickness multiplied by `sec(angle)`. Callers must not multiply by that factor again. Air and ordinary blocks without armor properties end the trace.
+
+`damageMultiplier[i]` belongs to that coordinate and is 1 for undamaged armor. Adjacent blocks of the same material do not share damage.
 
 ### Nonlinear Dynamic Hardness
 
@@ -160,13 +170,45 @@ budget = mass * speed * cos(angle) * velocityBonus
 massCost = struckBlockToughness * hardnessMultiplier / (speed * cos(angle))
 ```
 
-CBC handles penetration using the budget, gate, and its own collision conditions. After penetration, mass is debited using the struck block's **full base toughness**, then the next impact is evaluated using the remaining mass and armor. The velocity bonus helps the penetration budget but does not reduce this mass debit. Grazing ricochet probability also uses dynamic hardness. CBC retains control over impact results, fuzes, destruction, and effects.
+CBC handles penetration using the budget, gate, and its own collision conditions. After penetration, mass is debited using the struck block's **full single-block effective toughness, including its damage multiplier**, then the next impact is evaluated using the remaining mass and armor. The velocity bonus helps the penetration budget but does not reduce this mass debit. Grazing ricochet probability also uses dynamic hardness. CBC retains control over impact results, fuzes, destruction, and effects.
 
 Dynamic hardness raises penetration requirements and mass loss; **it does not directly decrease the projectile's penetration rating field**. When hardness is at or below the projectile's penetration rating, the extra hardness multiplier in these two formulas is 1. Mining always uses the material's base hardness.
 
 ### VS Ships
 
 Ship blocks are traced in ship-local coordinates, with movement directions and surface normals transformed between ship and world space. A rotated ship's armor path follows its own block arrangement rather than the world axes.
+
+## Impact Damage and Recovery
+
+When a projectile passes through CBC's shared collision flow, the surviving struck armor block may gain damage levels and display vanilla mining cracks. The probability depends on the projectile's mass, normal velocity and penetration before impact, and the struck block's base hardness and current effective toughness. Only the struck coordinate is affected; newly applied damage enters subsequent impact calculations.
+
+```text
+effectiveToughness = baseToughness * (1 - damageLevel / maxLevel)^exponent
+```
+
+Defaults allow 8 levels and up to 3 additional levels per impact. At the maximum level, toughness reaches zero and the block is destroyed. Disabling destruction caps damage at one below the maximum. Damage reduces toughness; hardness and explosion resistance retain their material values. Blast absorption is calculated separately. See the [development guide](DEVELOPMENT.md#410-临时命中损坏) for the probability model.
+
+One level recovers every 6000 game ticks by default, approximately 5 minutes at 20 TPS. A hit that adds damage restarts the timer. Recovery is processed every 20 ticks; offline and paused time do not count. Unloaded chunks are not force-loaded, but their records still recover according to server game time. Unrecovered damage is saved across restarts.
+
+Breaking and replacing a block resets its damage. **Damage currently belongs to the complete block state, so property changes also clear it: applying camouflage for the first time switches `camouflaged` and clears existing damage.** Changing only the appearance of an already camouflaged block does not trigger that switch again. Impact damage is submitted only on the server when CBC permits `ALL_DAMAGE`.
+
+## Armor Camouflage
+
+1. Obtain an empty camouflage mold from the creative tab or the command below. There is currently no bundled survival recipe for empty molds; modpacks can supply one.
+2. Shapelessly craft **1 empty mold + 1 target block item** into a filled mold.
+3. Right-click this mod's armor with the filled mold. Molds can be reused, with a default durability of 64.
+
+```mcfunction
+/give @s advancedarmor:camouflage_mold
+```
+
+Empty molds use `disguise_template.png` (green center); filled molds use `disguise_template_burned.png` (red center) and show the target block's name. Empty molds only participate in crafting. Filled molds cannot participate in that recipe again or change their recorded target. Each application costs 1 durability, including applying the same material again; creative mode normally does not consume durability.
+
+The recipe copies the block's **default state**. It rejects armor blocks, air, and default states containing fluid or a block entity. Item state tags, placement orientation, block entity NBT and functionality are not copied. Camouflage changes appearance only: collision, mining, hardness, toughness and explosion resistance still come from the real armor. Copying a luminous block does not create a real light source.
+
+Appearance is saved and synchronized through the block entity and survives world reloads. Breaking and replacing armor restores its original appearance. There is currently no dedicated in-game removal action; use another filled mold to overwrite the appearance. Only this mod's ten armor blocks support molds. Giving an ordinary block armor properties through a data pack does not add camouflage support.
+
+Rendering uses Forge appearance queries and the target model's `ModelData`, supplying visual neighbors for Create connected textures and using world block lighting. Border removal depends on the target model's connection rules. Other connected texture mods, shaders and third-party renderers need separate verification. Automated tests cover appearance queries, neighbor states and face culling, rather than actual client UVs or final rendered frames.
 
 ## High-Explosive Model
 
@@ -198,6 +240,34 @@ Configuration is stored in the world's `serverconfig/advancedarmor-server.toml`.
 | `blastAbsorptionScale` | 64.0 | 0.01-10000 | Armor absorption coefficient |
 | `blastAirLoss` | 2.0 | 0-1000 | Air loss coefficient per block of travel |
 | `blastMaxDistance` | 64 | 1-128 | Maximum blast ray travel distance |
+
+### Impact Damage Settings
+
+| Setting | Default | Minimum | Maximum | Purpose |
+|---|---:|---:|---:|---|
+| `armorDamageEnabled` | true | false | true | Enable projectile impact damage |
+| `armorDamageMaxLevel` | 8 | 1 | 32 | Maximum damage level |
+| `armorDamageToughnessExponent` | 1.2 | 0.25 | 4 | Toughness multiplier exponent; above 1 causes faster early loss |
+| `armorDamageReferenceImpact` | 2048 | 1 | 10000000 | Reference normal kinetic energy in CBC units; larger values make damage less likely |
+| `armorDamageImpactExponent` | 0.75 | 0.1 | 3 | Exponent for energy relative to its reference |
+| `armorDamagePenetrationExponent` | 1 | 0.1 | 3 | Exponent for penetration / base hardness |
+| `armorDamageReferenceToughness` | 54 | 0.1 | 10000 | Reference toughness for damage probability |
+| `armorDamageMinToughnessFactor` | 0.25 | 0.01 | 1 | Toughness denominator floor relative to reference; resulting multiplier is clamped to 0.25–4 |
+| `armorDamageHardnessBonusScale` | 0.5 | 0 | 4 | Extra damage scaling when penetration exceeds base hardness |
+| `armorDamageMaxProbability` | 0.85 | 0 | 1 | Maximum probability of gaining at least one level |
+| `armorDamageProbabilityRate` | 0.65 | 0.01 | 5 | Damage probability curve growth rate |
+| `armorDamageExtraLevelProbability` | 0.55 | 0 | 1 | Maximum probability for each consecutive extra level |
+| `armorDamageMaxLevelsPerHit` | 3 | 1 | 8 | Maximum levels added by one impact |
+| `armorDamageDecayIntervalTicks` | 6000 | 20 | 2592000 | Game ticks between recovery of one level |
+| `armorDamageDestroyAtMaxLevel` | true | false | true | Destroy at maximum damage; otherwise cap at maximum minus one |
+
+### Camouflage Mold Settings
+
+| Setting | Default | Minimum | Maximum | Purpose |
+|---|---:|---:|---:|---|
+| `camouflageMoldDurability` | 64 | 1 | 10000 | Filled mold maximum durability; each application consumes 1 point |
+
+All 25 settings are top-level TOML keys, with no extra sections. If `armorDamageMaxLevel = 1` and maximum-level destruction is disabled, the only retained damage level is 0.
 
 At the armor trace limit, total toughness is treated as infinite to avoid treating incompletely scanned armor as a thin plate. Increasing trace distances and ray counts increases computational cost.
 
@@ -242,7 +312,7 @@ my_armor_pack/
 |---|---|
 | `block` | Registered block ID |
 | `hardness` | Material base hardness for mining and the dynamic hardness model |
-| `toughness` | Single-block base toughness for path accumulation and penetration mass loss |
+| `toughness` | Single-block base toughness; its effective value after local damage scaling enters path accumulation and penetration mass loss |
 | `explosion_resistance` | Block explosion resistance and blast ray absorption |
 
 All three numeric values must be finite and nonnegative. Files belong in `data/<namespace>/armor_properties/<any filename>.json`; the filename need not match the block ID. The server synchronizes properties to clients on login and data pack reload.
@@ -268,12 +338,14 @@ The development client loads JEI, Jade, input-method support, and KubeJS (with R
 - Armor properties: [src/main/resources/data/advancedarmor/armor_properties](src/main/resources/data/advancedarmor/armor_properties)
 - Recipes: [src/main/resources/data/advancedarmor/recipes](src/main/resources/data/advancedarmor/recipes)
 - Configuration definitions: [Config.java](src/main/java/org/wgx/advancedarmor/Config.java)
-- Integration tests: [ArmorGameTests.java](src/main/java/org/wgx/advancedarmor/ArmorGameTests.java)
+- Armor and CBC tests: [ArmorGameTests.java](src/main/java/org/wgx/advancedarmor/ArmorGameTests.java)
+- Damage tests: [ArmorDamageGameTests.java](src/main/java/org/wgx/advancedarmor/ArmorDamageGameTests.java)
+- Camouflage tests: [CamouflageGameTests.java](src/main/java/org/wgx/advancedarmor/CamouflageGameTests.java)
 - Asset generation: [tools/generate_assets.py](tools/generate_assets.py)
 
-The asset generator rewrites some textures, models, localization, properties, loot tables, and recipes. Update the generator when keeping manual changes. Its KC hardness value is currently still `1.95`; running it will overwrite the current JSON value of `2.00`.
+The asset generator rewrites some textures, models, localization, properties, loot tables, and recipes. Update the generator when keeping manual changes. Its KC hardness value is currently still `1.95`; running it will overwrite the current JSON value of `2.00` and remove damage and camouflage localization entries that the script does not yet include.
 
-The source contains 18 GameTests covering contiguous armor, oblique and edge impacts, mass loss, dynamic hardness, ricochet, explosions, data packs, and inspection. Earlier verification passed all 18 tests with both CBC 5.8.2 and `createbigcannons-5.8.3edited.jar`; this did not verify the entire modpack. **KC base hardness has since changed to 2.00, while some tests still assert 1.95. Update those balance expectations before rerunning the suite.**
+As of 2026-10-07, `build` succeeds in the baseline development environment and all 27 required dedicated-server GameTests pass: 18 armor/CBC tests, 7 damage tests, and 2 camouflage tests. `build` does not automatically run GameTests; execute `runGameTestServer` separately. These tests do not verify final client lighting, connected texture frames, camouflage rendering on VS ships or shader compatibility. See the [development guide](DEVELOPMENT.md#9-测试和验证) for the manual verification checklist.
 
 ## Compatibility and FAQ
 
@@ -291,9 +363,9 @@ Inspection toughness is used for projectile penetration. The blast model uses `e
 
 ### Are CBC addon projectiles automatically compatible?
 
-Addon projectiles passing through CBC's shared `clipAndDamage` collision flow and querying matching impact properties through `BlockArmorPropertiesHandler.getProperties(state)` can read dynamic toughness and hardness, even when their penetration override does not call `super`. The impact snapshot is created before block destruction; ordinary queries return base values.
+Addon projectiles passing through CBC's shared `clipAndDamage` collision flow and querying matching impact properties through `BlockArmorPropertiesHandler.getProperties(state)` can read dynamic toughness and hardness, even when their penetration override does not call `super`. The impact snapshot is created before block destruction. Outside that context, data-pack armor queries return base hardness and the coordinate's current single-block effective toughness.
 
-CBC big-cannon projectiles use this mod's gate, mass debit, and ricochet hooks. Autocannons keep CBC's cumulative block damage flow, while property queries can read dynamic values. Addons retain control over their own formulas. For mass debit integration, use `ArmorImpactContext.current(projectile)` to access `baseToughness()` or `massCost()`. Implementations bypassing the shared collision flow or CBC property queries need explicit integration; see the [development guide](DEVELOPMENT.md).
+CBC big-cannon projectiles use this mod's gate, mass debit, and ricochet hooks. Autocannons keep CBC's cumulative block damage flow, while property queries can read dynamic values. Addons retain control over their own formulas. For mass debit integration, use a non-null `ArmorImpactContext.current(projectile)` to access `effectiveBlockToughness()` or `massCost()`. Implementations bypassing the shared collision flow or CBC property queries need explicit integration; see the [development guide](DEVELOPMENT.md).
 
 Mixin hooks target method call sites rather than fixed local variable slots. CBC versions that change those calls or method signatures still require separate verification. When reporting an issue, include Minecraft, Forge, CBC, VS, and Advanced Armor versions, `logs/latest.log`, the armor arrangement, projectile type, speed, and impact direction.
 

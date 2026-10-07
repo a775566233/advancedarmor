@@ -1,6 +1,8 @@
 package org.wgx.advancedarmor;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -21,6 +23,13 @@ public final class ArmorBlock extends Block implements EntityBlock {
     @Override
     public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
+    }
+
+    @Override
+    public BlockState getAppearance(BlockState state, BlockAndTintGetter level, BlockPos pos,
+                                    Direction side, BlockState queryState, BlockPos queryPos) {
+        // Let ordinary Create blocks connect to neighbouring camouflaged armor too.
+        return CamouflageArmorBlockEntity.appearanceAt(level, pos, state);
     }
 
     @Override
