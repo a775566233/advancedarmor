@@ -194,9 +194,9 @@ Breaking and replacing a block resets its damage. **Damage currently belongs to 
 
 ## Armor Camouflage
 
-1. Obtain an empty camouflage mold from the creative tab or the command below. There is currently no bundled survival recipe for empty molds; modpacks can supply one.
-2. Shapelessly craft **1 empty mold + 1 target block item** into a filled mold.
-3. Right-click this mod's armor with the filled mold. Molds can be reused, with a default durability of 64.
+~~1. Obtain an empty camouflage mold from the creative tab or the command below. There is currently no bundled survival recipe for empty molds; modpacks can supply one.~~
+1. Shapelessly craft **1 empty mold + 1 target block item** into a filled mold.
+2. Right-click this mod's armor with the filled mold. Molds can be reused, with a default durability of 64.
 
 ```mcfunction
 /give @s advancedarmor:camouflage_mold
