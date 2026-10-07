@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " I ",
+    " J ",
+    " K "
+  ],
+  "key": {
+    "I": {
+      "item": "minecraft:paper"
+    },
+    "J": {
+      "item": "minecraft:brush"
+    },
+    "K": {
+      "tag": "forge:gunpowder"
+    }
+  },
+  "result": {
+    "item": "advancedarmor:camouflage_mold",
+    "count": 1
+  }
+}
